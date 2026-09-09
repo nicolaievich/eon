@@ -5,15 +5,23 @@ let proyectos: any[] = [];
 let categorias: any[] = [];
 let clientes: any[] = [];
 
-// Valores predeterminados
+// Estado para valores por defecto
+let defaultProyectoId: number | null = null;
+let defaultClienteId: number | null = null;
+
+// Valores predeterminados (fallback si no hay configuración)
 const DEFAULT_PROYECTO = 'Hermanos Calmels';
 const DEFAULT_CLIENTE = 'Hermanos Calmels';
 
 // Función principal para renderizar el formulario
 export async function renderRegistrar(container: HTMLElement) {
-  // Cargar datos desde Supabase
+  // ✅ PRIMERO: Cargar datos (proyectos, categorías, clientes)
   await cargarDatos();
   
+  // ✅ SEGUNDO: Cargar defaults (ahora que ya tenemos los datos)
+  await cargarDefaults();
+  
+  // ✅ TERCERO: Renderizar el HTML
   container.innerHTML = `
     <article>
       <h2>📋 Registrar tiempo</h2>
@@ -31,7 +39,7 @@ export async function renderRegistrar(container: HTMLElement) {
           <select id="proyecto">
             <option value="">Sin proyecto</option>
             ${proyectos.map(p => `
-              <option value="${p.id}" ${p.nombre === DEFAULT_PROYECTO ? 'selected' : ''}>
+              <option value="${p.id}" ${defaultProyectoId === p.id ? 'selected' : ''}>
                 ${p.nombre}
               </option>
             `).join('')}
@@ -55,7 +63,7 @@ export async function renderRegistrar(container: HTMLElement) {
           <select id="cliente">
             <option value="">Sin cliente</option>
             ${clientes.map(c => `
-              <option value="${c.id}" ${c.nombre === DEFAULT_CLIENTE ? 'selected' : ''}>
+              <option value="${c.id}" ${defaultClienteId === c.id ? 'selected' : ''}>
                 ${c.nombre}
               </option>
             `).join('')}
@@ -98,30 +106,89 @@ async function cargarDatos() {
   
   if (!userId) return;
   
-  // Cargar proyectos
+  // Cargar proyectos activos
   const { data: proyectosData } = await supabase
     .from('proyectos')
     .select('*')
     .eq('user_id', userId)
-    .eq('activo', true);
+    .eq('activo', true)
+    .order('nombre');
   
-  if (proyectosData) proyectos = proyectosData;
+  proyectos = proyectosData ?? [];
   
   // Cargar categorías
   const { data: categoriasData } = await supabase
     .from('categorias')
     .select('*')
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .order('nombre');
   
-  if (categoriasData) categorias = categoriasData;
+  categorias = categoriasData ?? [];
   
   // Cargar clientes
   const { data: clientesData } = await supabase
     .from('clientes')
     .select('*')
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .order('nombre');
   
-  if (clientesData) clientes = clientesData;
+  clientes = clientesData ?? [];
+}
+
+// ========== CARGAR VALORES POR DEFECTO ==========
+async function cargarDefaults() {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+  
+  // Resetear defaults
+  defaultProyectoId = null;
+  defaultClienteId = null;
+  
+  if (!userId) return;
+
+  // Intentar cargar desde la tabla de configuración
+  const { data, error } = await supabase
+    .from('configuracion')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (data && !error) {
+    // ✅ Verificar que el proyecto exista en la lista de proyectos activos
+    if (data.proyecto_id) {
+      const proyectoExiste = proyectos.some(p => p.id === data.proyecto_id);
+      if (proyectoExiste) {
+        defaultProyectoId = data.proyecto_id;
+      }
+    }
+    
+    // ✅ Verificar que el cliente exista en la lista de clientes
+    if (data.cliente_id) {
+      const clienteExiste = clientes.some(c => c.id === data.cliente_id);
+      if (clienteExiste) {
+        defaultClienteId = data.cliente_id;
+      }
+    }
+  } else {
+    // Si no hay configuración, usar los valores por nombre (fallback)
+    const proyectoFallback = proyectos.find(p => p.nombre === DEFAULT_PROYECTO);
+    if (proyectoFallback) {
+      defaultProyectoId = proyectoFallback.id;
+    }
+    
+    const clienteFallback = clientes.find(c => c.nombre === DEFAULT_CLIENTE);
+    if (clienteFallback) {
+      defaultClienteId = clienteFallback.id;
+    }
+  }
+  
+  // ✅ Debug: Mostrar en consola qué valores se están cargando
+  console.log('📌 Defaults cargados:', {
+    defaultProyectoId,
+    defaultClienteId,
+    proyectos: proyectos.map(p => ({ id: p.id, nombre: p.nombre })),
+    clientes: clientes.map(c => ({ id: c.id, nombre: c.nombre }))
+  });
 }
 
 // ========== GUARDAR REGISTRO ==========

@@ -22,8 +22,13 @@ let proyectos: Proyecto[] = [];
 let categorias: Categoria[] = [];
 let clientes: Cliente[] = [];
 
+// ✅ NUEVO: Estado para valores por defecto
+let defaultProyectoId: number | null = null;
+let defaultClienteId: number | null = null;
+
 export async function renderConfig(container: HTMLElement) {
   await cargarTodo();
+  await cargarDefaults();
   pintar(container);
 }
 
@@ -43,10 +48,89 @@ async function cargarTodo() {
   clientes = cl ?? [];
 }
 
+// ✅ NUEVO: Cargar valores por defecto desde Supabase
+async function cargarDefaults() {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+  if (!userId) return;
+
+  const { data, error } = await supabase
+    .from('configuracion')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (data && !error) {
+    defaultProyectoId = data.proyecto_id || null;
+    defaultClienteId = data.cliente_id || null;
+  } else {
+    // Si no hay configuración, usar null
+    defaultProyectoId = null;
+    defaultClienteId = null;
+  }
+}
+
+// ✅ NUEVO: Guardar valores por defecto
+async function guardarDefaults(proyectoId: number | null, clienteId: number | null) {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+  if (!userId) return;
+
+  const { error } = await supabase
+    .from('configuracion')
+    .upsert({
+      user_id: userId,
+      proyecto_id: proyectoId,
+      cliente_id: clienteId,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id'
+    });
+
+  if (error) {
+    console.error('Error al guardar defaults:', error);
+    throw error;
+  }
+}
+
 function pintar(container: HTMLElement) {
   container.innerHTML = `
     <article>
       <h2>⚙️ Configuración</h2>
+
+      <!-- ✅ NUEVO: Valores por defecto -->
+      <details open>
+        <summary><strong>Valores por defecto</strong></summary>
+        <form id="formDefaults" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+          <label style="flex:2; min-width:200px;">
+            Proyecto predeterminado
+            <select id="defaultProyecto">
+              <option value="">Seleccionar proyecto por defecto</option>
+              ${proyectos.map(p => `
+                <option value="${p.id}" ${defaultProyectoId === p.id ? 'selected' : ''}>
+                  ${escapeHtml(p.nombre)}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+          <label style="flex:2; min-width:200px;">
+            Cliente predeterminado
+            <select id="defaultCliente">
+              <option value="">Seleccionar cliente por defecto</option>
+              ${clientes.map(c => `
+                <option value="${c.id}" ${defaultClienteId === c.id ? 'selected' : ''}>
+                  ${escapeHtml(c.nombre)}
+                </option>
+              `).join('')}
+            </select>
+          </label>
+          <button type="submit">💾 Guardar predeterminados</button>
+        </form>
+        <div id="defaultMensaje" style="margin-top: 0.5rem;"></div>
+        <p style="color: var(--pico-muted-color); font-size: 0.8rem; margin-top: 0.5rem;">
+          ℹ️ Estos valores se cargarán automáticamente al registrar tiempo.
+        </p>
+      </details>
 
       <details open>
         <summary><strong>Proyectos</strong></summary>
@@ -69,9 +153,11 @@ function pintar(container: HTMLElement) {
                 <td>${escapeHtml(p.nombre)}</td>
                 <td>${escapeHtml(p.descripcion ?? '')}</td>
                 <td>${p.activo ? '✅' : '❌'}</td>
-                <td><button type="button" class="secondary toggleProyecto" data-id="${p.id}" data-activo="${p.activo}">
-                  ${p.activo ? 'Desactivar' : 'Activar'}
-                </button></td>
+                <td>
+                  <button type="button" class="secondary toggleProyecto" data-id="${p.id}" data-activo="${p.activo}">
+                    ${p.activo ? 'Desactivar' : 'Activar'}
+                  </button>
+                </td>
               </tr>
             `).join('') || '<tr><td colspan="4"><em>Sin proyectos todavía</em></td></tr>'}
           </tbody>
@@ -134,6 +220,8 @@ function pintar(container: HTMLElement) {
     </article>
   `;
 
+  // ✅ NUEVO: Event listener para defaults
+  document.getElementById('formDefaults')?.addEventListener('submit', handleDefaults);
   document.getElementById('formProyecto')?.addEventListener('submit', (e) => handleAlta(e, container, 'proyectos'));
   document.getElementById('formCategoria')?.addEventListener('submit', (e) => handleAlta(e, container, 'categorias'));
   document.getElementById('formCliente')?.addEventListener('submit', (e) => handleAlta(e, container, 'clientes'));
@@ -145,9 +233,38 @@ function pintar(container: HTMLElement) {
       const activo = target.dataset.activo === 'true';
       await supabase.from('proyectos').update({ activo: !activo }).eq('id', id);
       await cargarTodo();
+      await cargarDefaults();
       pintar(container);
     });
   });
+}
+
+// ✅ NUEVO: Manejador para guardar defaults
+async function handleDefaults(e: Event) {
+  e.preventDefault();
+  const mensaje = document.getElementById('defaultMensaje');
+  if (!mensaje) return;
+
+  const proyectoId = (document.getElementById('defaultProyecto') as HTMLSelectElement).value;
+  const clienteId = (document.getElementById('defaultCliente') as HTMLSelectElement).value;
+
+  try {
+    await guardarDefaults(
+      proyectoId ? parseInt(proyectoId) : null,
+      clienteId ? parseInt(clienteId) : null
+    );
+    mensaje.innerHTML = '<p style="color: green;">✅ Predeterminados guardados</p>';
+    
+    // Actualizar los valores en memoria
+    defaultProyectoId = proyectoId ? parseInt(proyectoId) : null;
+    defaultClienteId = clienteId ? parseInt(clienteId) : null;
+    
+    setTimeout(() => {
+      mensaje.innerHTML = '';
+    }, 3000);
+  } catch (error: any) {
+    mensaje.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+  }
 }
 
 async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' | 'categorias' | 'clientes') {
@@ -185,6 +302,7 @@ async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' |
   }
 
   await cargarTodo();
+  await cargarDefaults();
   pintar(container);
   const nuevoMensaje = document.getElementById('configMensaje');
   if (nuevoMensaje) nuevoMensaje.innerHTML = '<p style="color: green;">✅ Guardado</p>';

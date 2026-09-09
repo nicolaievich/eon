@@ -1,0 +1,683 @@
+Registro total de scripts dentro del proyecto EON:
+Estructura:
+eon
+	-src---
+    	-pages
+			config.ts
+			registrar.ts
+		-lib	
+			supabase.ts
+			types.ts
+		main.ts
+		auth.ts
+	-styles
+	-node_modules
+	-public
+	package-lock.json
+	package.json
+	tsconfig.json
+	index.html
+---------------
+config.ts:
+import { supabase } from '../lib/supabase';
+
+// ========== TIPOS LOCALES ==========
+interface Proyecto {
+  id: number;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+}
+interface Categoria {
+  id: number;
+  nombre: string;
+  color: string | null;
+}
+interface Cliente {
+  id: number;
+  nombre: string;
+  contacto: string | null;
+}
+
+let proyectos: Proyecto[] = [];
+let categorias: Categoria[] = [];
+let clientes: Cliente[] = [];
+
+export async function renderConfig(container: HTMLElement) {
+  await cargarTodo();
+  pintar(container);
+}
+
+async function cargarTodo() {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+  if (!userId) return;
+
+  const [{ data: p }, { data: c }, { data: cl }] = await Promise.all([
+    supabase.from('proyectos').select('*').eq('user_id', userId).order('nombre'),
+    supabase.from('categorias').select('*').eq('user_id', userId).order('nombre'),
+    supabase.from('clientes').select('*').eq('user_id', userId).order('nombre'),
+  ]);
+
+  proyectos = p ?? [];
+  categorias = c ?? [];
+  clientes = cl ?? [];
+}
+
+function pintar(container: HTMLElement) {
+  container.innerHTML = `
+    <article>
+      <h2>⚙️ Configuración</h2>
+
+      <details open>
+        <summary><strong>Proyectos</strong></summary>
+        <form id="formProyecto" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+          <label style="flex:2; min-width:150px;">
+            Nombre
+            <input type="text" id="proyectoNombre" required>
+          </label>
+          <label style="flex:2; min-width:150px;">
+            Descripción
+            <input type="text" id="proyectoDescripcion">
+          </label>
+          <button type="submit">+ Agregar</button>
+        </form>
+        <table>
+          <thead><tr><th>Nombre</th><th>Descripción</th><th>Activo</th><th></th></tr></thead>
+          <tbody>
+            ${proyectos.map(p => `
+              <tr>
+                <td>${escapeHtml(p.nombre)}</td>
+                <td>${escapeHtml(p.descripcion ?? '')}</td>
+                <td>${p.activo ? '✅' : '❌'}</td>
+                <td><button type="button" class="secondary toggleProyecto" data-id="${p.id}" data-activo="${p.activo}">
+                  ${p.activo ? 'Desactivar' : 'Activar'}
+                </button></td>
+              </tr>
+            `).join('') || '<tr><td colspan="4"><em>Sin proyectos todavía</em></td></tr>'}
+          </tbody>
+        </table>
+      </details>
+
+      <details open>
+        <summary><strong>Categorías</strong></summary>
+        <form id="formCategoria" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+          <label style="flex:2; min-width:150px;">
+            Nombre
+            <input type="text" id="categoriaNombre" required>
+          </label>
+          <label style="flex:1; min-width:100px;">
+            Color
+            <input type="color" id="categoriaColor" value="#3b82f6">
+          </label>
+          <button type="submit">+ Agregar</button>
+        </form>
+        <table>
+          <thead><tr><th>Nombre</th><th>Color</th></tr></thead>
+          <tbody>
+            ${categorias.map(c => `
+              <tr>
+                <td>${escapeHtml(c.nombre)}</td>
+                <td><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c.color ?? '#ccc'};"></span></td>
+              </tr>
+            `).join('') || '<tr><td colspan="2"><em>Sin categorías todavía — necesitás al menos una para poder registrar tiempo</em></td></tr>'}
+          </tbody>
+        </table>
+      </details>
+
+      <details open>
+        <summary><strong>Clientes</strong></summary>
+        <form id="formCliente" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+          <label style="flex:2; min-width:150px;">
+            Nombre
+            <input type="text" id="clienteNombre" required>
+          </label>
+          <label style="flex:2; min-width:150px;">
+            Contacto
+            <input type="text" id="clienteContacto">
+          </label>
+          <button type="submit">+ Agregar</button>
+        </form>
+        <table>
+          <thead><tr><th>Nombre</th><th>Contacto</th></tr></thead>
+          <tbody>
+            ${clientes.map(c => `
+              <tr>
+                <td>${escapeHtml(c.nombre)}</td>
+                <td>${escapeHtml(c.contacto ?? '')}</td>
+              </tr>
+            `).join('') || '<tr><td colspan="2"><em>Sin clientes todavía</em></td></tr>'}
+          </tbody>
+        </table>
+      </details>
+
+      <div id="configMensaje" style="margin-top: 1rem;"></div>
+    </article>
+  `;
+
+  document.getElementById('formProyecto')?.addEventListener('submit', (e) => handleAlta(e, container, 'proyectos'));
+  document.getElementById('formCategoria')?.addEventListener('submit', (e) => handleAlta(e, container, 'categorias'));
+  document.getElementById('formCliente')?.addEventListener('submit', (e) => handleAlta(e, container, 'clientes'));
+
+  container.querySelectorAll('.toggleProyecto').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const target = e.currentTarget as HTMLButtonElement;
+      const id = Number(target.dataset.id);
+      const activo = target.dataset.activo === 'true';
+      await supabase.from('proyectos').update({ activo: !activo }).eq('id', id);
+      await cargarTodo();
+      pintar(container);
+    });
+  });
+}
+
+async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' | 'categorias' | 'clientes') {
+  e.preventDefault();
+  const mensaje = document.getElementById('configMensaje');
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId || !mensaje) return;
+
+  let payload: Record<string, unknown> = { user_id: userId };
+
+  if (tabla === 'proyectos') {
+    const nombre = (document.getElementById('proyectoNombre') as HTMLInputElement).value.trim();
+    const descripcion = (document.getElementById('proyectoDescripcion') as HTMLInputElement).value.trim();
+    if (!nombre) return;
+    payload = { ...payload, nombre, descripcion: descripcion || null, activo: true };
+  } else if (tabla === 'categorias') {
+    const nombre = (document.getElementById('categoriaNombre') as HTMLInputElement).value.trim();
+    const color = (document.getElementById('categoriaColor') as HTMLInputElement).value;
+    if (!nombre) return;
+    payload = { ...payload, nombre, color };
+  } else {
+    const nombre = (document.getElementById('clienteNombre') as HTMLInputElement).value.trim();
+    const contacto = (document.getElementById('clienteContacto') as HTMLInputElement).value.trim();
+    if (!nombre) return;
+    payload = { ...payload, nombre, contacto: contacto || null };
+  }
+
+  const { error } = await supabase.from(tabla).insert(payload);
+
+  if (error) {
+    mensaje.innerHTML = `<p style="color: red;">❌ Error: ${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
+  await cargarTodo();
+  pintar(container);
+  const nuevoMensaje = document.getElementById('configMensaje');
+  if (nuevoMensaje) nuevoMensaje.innerHTML = '<p style="color: green;">✅ Guardado</p>';
+}
+
+function escapeHtml(str: string): string {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+-------------------------------------------------------
+registrar.ts:
+import { supabase } from '../lib/supabase';
+
+// Estado para proyectos, categorías y clientes
+let proyectos: any[] = [];
+let categorias: any[] = [];
+let clientes: any[] = [];
+
+// Valores predeterminados
+const DEFAULT_PROYECTO = 'Hermanos Calmels';
+const DEFAULT_CLIENTE = 'Hermanos Calmels';
+
+// Función principal para renderizar el formulario
+export async function renderRegistrar(container: HTMLElement) {
+  // Cargar datos desde Supabase
+  await cargarDatos();
+  
+  container.innerHTML = `
+    <article>
+      <h2>📋 Registrar tiempo</h2>
+      
+      <form id="registroForm">
+        <!-- Fecha -->
+        <label>
+          Fecha *
+          <input type="date" id="fecha" value="${new Date().toISOString().split('T')[0]}">
+        </label>
+        
+        <!-- Proyecto -->
+        <label>
+          Proyecto
+          <select id="proyecto">
+            <option value="">Sin proyecto</option>
+            ${proyectos.map(p => `
+              <option value="${p.id}" ${p.nombre === DEFAULT_PROYECTO ? 'selected' : ''}>
+                ${p.nombre}
+              </option>
+            `).join('')}
+          </select>
+        </label>
+        
+        <!-- Categoría (obligatoria) -->
+        <label>
+          Categoría *
+          <select id="categoria" required>
+            <option value="">Seleccionar categoría</option>
+            ${categorias.map(c => `
+              <option value="${c.id}">${c.nombre}</option>
+            `).join('')}
+          </select>
+        </label>
+        
+        <!-- Cliente -->
+        <label>
+          Cliente
+          <select id="cliente">
+            <option value="">Sin cliente</option>
+            ${clientes.map(c => `
+              <option value="${c.id}" ${c.nombre === DEFAULT_CLIENTE ? 'selected' : ''}>
+                ${c.nombre}
+              </option>
+            `).join('')}
+          </select>
+        </label>
+        
+        <!-- Tiempo (con timer integrado) -->
+        <label>
+          Tiempo * (HH:MM:SS)
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="text" id="tiempo" placeholder="01:30:00" value="00:00:00" required style="flex: 1;">
+            <button type="button" id="timerBtn" class="secondary">▶ Iniciar</button>
+            <button type="button" id="resetBtn" class="contrast">↺</button>
+          </div>
+        </label>
+        
+        <!-- Detalle -->
+        <label>
+          Detalle
+          <textarea id="detalle" rows="3" placeholder="¿Qué hiciste? (opcional)"></textarea>
+        </label>
+        
+        <button type="submit">💾 Guardar registro</button>
+      </form>
+      
+      <div id="mensaje" style="margin-top: 1rem;"></div>
+    </article>
+  `;
+  
+  // Event listeners
+  document.getElementById('registroForm')?.addEventListener('submit', handleGuardar);
+  document.getElementById('timerBtn')?.addEventListener('click', handleTimer);
+  document.getElementById('resetBtn')?.addEventListener('click', handleReset);
+}
+
+// ========== CARGAR DATOS DESDE SUPABASE ==========
+async function cargarDatos() {
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+  
+  if (!userId) return;
+  
+  // Cargar proyectos
+  const { data: proyectosData } = await supabase
+    .from('proyectos')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('activo', true);
+  
+  if (proyectosData) proyectos = proyectosData;
+  
+  // Cargar categorías
+  const { data: categoriasData } = await supabase
+    .from('categorias')
+    .select('*')
+    .eq('user_id', userId);
+  
+  if (categoriasData) categorias = categoriasData;
+  
+  // Cargar clientes
+  const { data: clientesData } = await supabase
+    .from('clientes')
+    .select('*')
+    .eq('user_id', userId);
+  
+  if (clientesData) clientes = clientesData;
+}
+
+// ========== GUARDAR REGISTRO ==========
+async function handleGuardar(e: Event) {
+  e.preventDefault();
+  
+  const fecha = (document.getElementById('fecha') as HTMLInputElement).value;
+  const proyectoId = (document.getElementById('proyecto') as HTMLSelectElement).value;
+  const categoriaId = (document.getElementById('categoria') as HTMLSelectElement).value;
+  const clienteId = (document.getElementById('cliente') as HTMLSelectElement).value;
+  const tiempoStr = (document.getElementById('tiempo') as HTMLInputElement).value;
+  const detalle = (document.getElementById('detalle') as HTMLTextAreaElement).value;
+  const mensaje = document.getElementById('mensaje');
+  
+  if (!mensaje) return;
+  
+  // Validar categoría (obligatoria)
+  if (!categoriaId) {
+    mensaje.innerHTML = '<p style="color: red;">❌ La categoría es obligatoria</p>';
+    return;
+  }
+  
+  // Validar tiempo (formato HH:MM:SS)
+  const tiempoRegex = /^([0-9]{2}):([0-9]{2}):([0-9]{2})$/;
+  const match = tiempoStr.match(tiempoRegex);
+  if (!match) {
+    mensaje.innerHTML = '<p style="color: red;">❌ Formato de tiempo inválido. Usá HH:MM:SS</p>';
+    return;
+  }
+  
+  // Convertir a minutos
+  const horas = parseInt(match[1]);
+  const minutos = parseInt(match[2]);
+  const segundos = parseInt(match[3]);
+  const tiempoMinutos = horas * 60 + minutos + (segundos / 60);
+  
+  // Obtener usuario actual
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+  
+  if (!userId) {
+    mensaje.innerHTML = '<p style="color: red;">❌ No estás autenticado</p>';
+    return;
+  }
+  
+  // Guardar en Supabase
+  const { error } = await supabase
+    .from('registros')
+    .insert({
+      fecha,
+      proyecto_id: proyectoId || null,
+      categoria_id: parseInt(categoriaId),
+      cliente_id: clienteId || null,
+      tiempo_minutos: Math.round(tiempoMinutos),
+      detalle: detalle || null,
+      user_id: userId
+    });
+  
+  if (error) {
+    mensaje.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+    return;
+  }
+  
+  mensaje.innerHTML = '<p style="color: green;">✅ Registro guardado correctamente</p>';
+  
+  // Limpiar tiempo y detalle
+  (document.getElementById('tiempo') as HTMLInputElement).value = '00:00:00';
+  (document.getElementById('detalle') as HTMLTextAreaElement).value = '';
+}
+
+// ========== TIMER ==========
+let timerInterval: number | null = null;
+let segundos = 0;
+let timerCorriendo = false;
+
+function handleTimer() {
+  const btn = document.getElementById('timerBtn') as HTMLButtonElement;
+  const input = document.getElementById('tiempo') as HTMLInputElement;
+  
+  if (!btn || !input) return;
+  
+  if (timerCorriendo) {
+    // Detener timer
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    timerCorriendo = false;
+    btn.textContent = '▶ Iniciar';
+    btn.className = 'secondary';
+  } else {
+    // Iniciar timer
+    const partes = input.value.split(':');
+    if (partes.length === 3) {
+      segundos = parseInt(partes[0]) * 3600 + parseInt(partes[1]) * 60 + parseInt(partes[2]);
+    } else {
+      segundos = 0;
+    }
+    
+    timerCorriendo = true;
+    btn.textContent = '⏹ Detener';
+    btn.className = 'primary';
+    
+    timerInterval = window.setInterval(() => {
+      segundos++;
+      const h = String(Math.floor(segundos / 3600)).padStart(2, '0');
+      const m = String(Math.floor((segundos % 3600) / 60)).padStart(2, '0');
+      const s = String(segundos % 60).padStart(2, '0');
+      input.value = `${h}:${m}:${s}`;
+    }, 1000);
+  }
+}
+
+function handleReset() {
+  const input = document.getElementById('tiempo') as HTMLInputElement;
+  const btn = document.getElementById('timerBtn') as HTMLButtonElement;
+  
+  if (!input || !btn) return;
+  
+  // Detener timer si está corriendo
+  if (timerCorriendo) {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+    timerCorriendo = false;
+    btn.textContent = '▶ Iniciar';
+    btn.className = 'secondary';
+  }
+  
+  input.value = '00:00:00';
+  segundos = 0;
+}
+--------------------------------------
+auth.ts:
+import { supabase } from './lib/supabase';
+
+// Registrar usuario
+export async function registrarUsuario(email: string, password: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+  if (error) throw error;
+  return data;
+}
+
+// Iniciar sesión
+export async function iniciarSesion(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  if (error) throw error;
+  return data;
+}
+
+// Cerrar sesión
+export async function cerrarSesion() {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+}
+
+// Obtener sesión actual
+export async function obtenerSesion() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data;
+}
+---------------------------------------------------
+main.ts:
+import '@picocss/pico';
+import { renderRegistrar } from './pages/registrar';
+import { renderConfig } from './pages/config';
+import { iniciarSesion, registrarUsuario, cerrarSesion, obtenerSesion } from './auth';
+
+const app = document.getElementById('app');
+let usuarioActual: any = null;
+let vistaActual: 'registrar' | 'config' = 'registrar';
+
+// ========== PANTALLA DE LOGIN ==========
+function renderLogin() {
+  if (!app) return;
+  
+  app.innerHTML = `
+    <main class="container" style="max-width: 400px; margin-top: 3rem;">
+      <h1 style="text-align: center;">🚀 EÓN</h1>
+      <p style="text-align: center; color: var(--pico-muted-color);">Registro de tiempos</p>
+      
+      <article>
+        <h2>Iniciar sesión</h2>
+        <form id="loginForm">
+          <label>
+            Email
+            <input type="email" id="loginEmail" placeholder="tu@email.com" required>
+          </label>
+          <label>
+            Contraseña
+            <input type="password" id="loginPassword" placeholder="••••••••" required>
+          </label>
+          <button type="submit" style="width: 100%;">Iniciar sesión</button>
+        </form>
+        
+        <hr>
+        
+        <details>
+          <summary>¿No tenés cuenta? Registrate</summary>
+          <form id="registerForm">
+            <label>
+              Email
+              <input type="email" id="registerEmail" placeholder="tu@email.com" required>
+            </label>
+            <label>
+              Contraseña
+              <input type="password" id="registerPassword" placeholder="••••••••" required>
+            </label>
+            <button type="submit" style="width: 100%;" class="secondary">Registrarme</button>
+          </form>
+        </details>
+        
+        <div id="authMessage" style="margin-top: 1rem;"></div>
+      </article>
+    </main>
+  `;
+  
+  document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
+  document.getElementById('registerForm')?.addEventListener('submit', handleRegister);
+}
+
+// ========== PANTALLA PRINCIPAL ==========
+function renderApp() {
+  if (!app) return;
+
+  app.innerHTML = `
+    <main class="container">
+      <header style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--pico-muted-border-color);">
+        <h1 style="margin: 0;">🚀 EÓN</h1>
+        <div>
+          <span style="margin-right: 1rem;">👤 ${usuarioActual?.email || 'Usuario'}</span>
+          <button id="logoutBtn" class="contrast">Cerrar sesión</button>
+        </div>
+      </header>
+
+      <nav style="margin-top: 1rem;">
+        <ul>
+          <li><a href="#" id="navRegistrar" role="button" class="${vistaActual === 'registrar' ? '' : 'secondary'}">📋 Registrar</a></li>
+          <li><a href="#" id="navConfig" role="button" class="${vistaActual === 'config' ? '' : 'secondary'}">⚙️ Configuración</a></li>
+        </ul>
+      </nav>
+
+      <div id="vistaContainer" style="margin-top: 1rem;"></div>
+    </main>
+  `;
+
+  const container = document.getElementById('vistaContainer');
+  if (container) {
+    if (vistaActual === 'registrar') renderRegistrar(container);
+    else renderConfig(container);
+  }
+
+  document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+  document.getElementById('navRegistrar')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    vistaActual = 'registrar';
+    renderApp();
+  });
+  document.getElementById('navConfig')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    vistaActual = 'config';
+    renderApp();
+  });
+}
+
+// ========== MANEJADORES ==========
+async function handleLogin(e: Event) {
+  e.preventDefault();
+  const email = (document.getElementById('loginEmail') as HTMLInputElement).value;
+  const password = (document.getElementById('loginPassword') as HTMLInputElement).value;
+  const message = document.getElementById('authMessage');
+  
+  if (!message) return;
+  
+  try {
+    await iniciarSesion(email, password);
+    message.innerHTML = '<p style="color: green;">✅ Sesión iniciada</p>';
+    verificarSesion(); // Recargar UI
+  } catch (error: any) {
+    message.innerHTML = `<p style="color: red;">❌ ${error.message}</p>`;
+  }
+}
+
+async function handleRegister(e: Event) {
+  e.preventDefault();
+  const email = (document.getElementById('registerEmail') as HTMLInputElement).value;
+  const password = (document.getElementById('registerPassword') as HTMLInputElement).value;
+  const message = document.getElementById('authMessage');
+  
+  if (!message) return;
+  
+  try {
+    await registrarUsuario(email, password);
+    message.innerHTML = '<p style="color: green;">✅ Registro exitoso. Ahora iniciá sesión.</p>';
+    (document.getElementById('registerEmail') as HTMLInputElement).value = '';
+    (document.getElementById('registerPassword') as HTMLInputElement).value = '';
+  } catch (error: any) {
+    message.innerHTML = `<p style="color: red;">❌ ${error.message}</p>`;
+  }
+}
+
+async function handleLogout() {
+  try {
+    await cerrarSesion();
+    usuarioActual = null;
+    renderLogin();
+  } catch (error: any) {
+    alert('Error al cerrar sesión: ' + error.message);
+  }
+}
+
+// ========== VERIFICAR SESIÓN ==========
+async function verificarSesion() {
+  try {
+    const session = await obtenerSesion();
+    if (session?.session?.user) {
+      usuarioActual = session.session.user;
+      renderApp();
+    } else {
+      usuarioActual = null;
+      renderLogin();
+    }
+  } catch (error) {
+    console.error('Error al verificar sesión:', error);
+    renderLogin();
+  }
+}
+
+// ========== INICIALIZAR ==========
+verificarSesion();
+

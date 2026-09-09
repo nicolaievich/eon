@@ -20,6 +20,24 @@ export async function iniciarSesion(email: string, password: string) {
   return data;
 }
 
+// ✅ NUEVO: Recuperar contraseña
+export async function recuperarContrasena(email: string) {
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/reset-password',
+  });
+  if (error) throw error;
+  return data;
+}
+
+// ✅ NUEVO: Actualizar contraseña
+export async function actualizarContrasena(password: string) {
+  const { data, error } = await supabase.auth.updateUser({
+    password: password,
+  });
+  if (error) throw error;
+  return data;
+}
+
 // Cerrar sesión
 export async function cerrarSesion() {
   const { error } = await supabase.auth.signOut();
