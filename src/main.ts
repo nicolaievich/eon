@@ -1,4 +1,4 @@
-import '@picocss/pico';
+import '@picocss/pico/css/pico.min.css';
 import { renderRegistrar } from './pages/registrar';
 import { renderConfig } from './pages/config';
 import { iniciarSesion, registrarUsuario, cerrarSesion, obtenerSesion, enviarResetPassword, actualizarPassword } from './auth';
