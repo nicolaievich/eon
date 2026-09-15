@@ -6,13 +6,19 @@ import { iniciarSesion, registrarUsuario, cerrarSesion, obtenerSesion, enviarRes
 import { supabase } from './lib/supabase';
 
 const app = document.getElementById('app');
+
+// Usuario autenticado actualmente. Se utiliza para mostrar su email y controlar la vista.
 let usuarioActual: any = null;
+
+// EÓN actualmente tiene tres vistas principales: registrar, registros y configuración.
 let vistaActual: 'registrar' | 'registros' | 'config' = 'registrar';
 
 // ========== PANTALLA DE LOGIN ==========
 function renderLogin() {
   if (!app) return;
   
+  // Toda la pantalla de autenticación se construye dinámicamente para mantener
+  // la aplicación como una SPA pequeña y sin necesidad de un framework adicional.
   app.innerHTML = `
     <main class="container" style="max-width: 400px; margin-top: 3rem;">
       <h1 style="text-align: center;">🚀 EÓN</h1>
@@ -73,11 +79,13 @@ function renderLogin() {
   document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
   document.getElementById('registerForm')?.addEventListener('submit', handleRegister);
 
+  // Permite ver/ocultar la contraseña del login sin modificar el valor ingresado.
   document.getElementById('mostrarLoginPassword')?.addEventListener('change', (e) => {
     const password = document.getElementById('loginPassword') as HTMLInputElement;
     password.type = (e.target as HTMLInputElement).checked ? 'text' : 'password';
   });
 
+  // El mismo control sirve para las dos contraseñas del registro.
   document.getElementById('mostrarRegisterPassword')?.addEventListener('change', (e) => {
     const mostrar = (e.target as HTMLInputElement).checked;
     const password = document.getElementById('registerPassword') as HTMLInputElement;
@@ -86,6 +94,7 @@ function renderLogin() {
     confirmacion.type = mostrar ? 'text' : 'password';
   });
 
+  // El flujo de recuperación toma el email escrito en el formulario de login.
   document.getElementById('olvideClave')?.addEventListener('click', async (e) => {
     e.preventDefault();
     const email = (document.getElementById('loginEmail') as HTMLInputElement).value;
@@ -99,6 +108,7 @@ function renderLogin() {
       await enviarResetPassword(email);
       message.innerHTML = '<p style="color: green;">✅ Te enviamos un mail con el link para cambiar la contraseña</p>';
     } catch (error: any) {
+      // El mensaje se muestra al usuario; no exponemos datos de configuración local.
       message.innerHTML = `<p style="color: red;">❌ ${error.message}</p>`;
     }
   });
@@ -108,6 +118,7 @@ function renderLogin() {
 function renderNuevaPassword() {
   if (!app) return;
 
+  // Pantalla independiente para el estado PASSWORD_RECOVERY de Supabase.
   app.innerHTML = `
     <main class="container" style="max-width: 400px; margin-top: 3rem;">
       <h1 style="text-align: center;">🚀 EÓN</h1>
@@ -133,6 +144,7 @@ function renderNuevaPassword() {
     </main>
   `;
 
+  // Control de visibilidad de ambas contraseñas durante la recuperación.
   document.getElementById('mostrarNuevaPassword')?.addEventListener('change', (e) => {
     const mostrar = (e.target as HTMLInputElement).checked;
     const password = document.getElementById('nuevaPassword') as HTMLInputElement;
@@ -148,6 +160,7 @@ function renderNuevaPassword() {
     const mensaje = document.getElementById('nuevaPasswordMensaje');
     if (!mensaje) return;
 
+    // La validación local evita una llamada innecesaria a Supabase si los valores difieren.
     if (nueva !== confirmacion) {
       mensaje.innerHTML = '<p style="color: red;">❌ Las contraseñas no coinciden</p>';
       return;
@@ -167,6 +180,7 @@ function renderNuevaPassword() {
 function renderApp() {
   if (!app) return;
 
+  // Cabecera y navegación común a todas las vistas privadas de EÓN.
   app.innerHTML = `
     <main class="container">
       <header style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--pico-muted-border-color);">
@@ -197,6 +211,8 @@ function renderApp() {
   }
 
   document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+
+  // Cambiar de vista simplemente actualiza el estado y vuelve a renderizar el contenedor principal.
   document.getElementById('navRegistrar')?.addEventListener('click', (e) => {
     e.preventDefault();
     vistaActual = 'registrar';
@@ -241,6 +257,7 @@ async function handleRegister(e: Event) {
   
   if (!message) return;
 
+  // Validación local de confirmación de contraseña.
   if (password !== confirmacion) {
     message.innerHTML = '<p style="color: red;">❌ Las contraseñas no coinciden</p>';
     return;
@@ -257,6 +274,7 @@ async function handleRegister(e: Event) {
   }
 }
 
+// Cierra la sesión en Supabase y vuelve a la pantalla pública de login.
 async function handleLogout() {
   try {
     await cerrarSesion();
@@ -269,7 +287,9 @@ async function handleLogout() {
 
 // ========== VERIFICAR SESIÓN ==========
 async function verificarSesion() {
+  // Durante recuperación de contraseña no reemplazamos la pantalla específica.
   if (modoRecuperacion) return;
+
   try {
     const session = await obtenerSesion();
     if (session?.session?.user) {
@@ -288,6 +308,7 @@ async function verificarSesion() {
 // ========== INICIALIZAR ==========
 let modoRecuperacion = false;
 
+// Supabase informa aquí eventos de autenticación importantes, especialmente PASSWORD_RECOVERY.
 supabase.auth.onAuthStateChange((event) => {
   if (event === 'PASSWORD_RECOVERY') {
     modoRecuperacion = true;
@@ -295,4 +316,5 @@ supabase.auth.onAuthStateChange((event) => {
   }
 });
 
+// Punto de entrada de la aplicación: comprobamos si existe una sesión válida.
 verificarSesion();
