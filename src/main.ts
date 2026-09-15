@@ -28,6 +28,10 @@ function renderLogin() {
             Contraseña
             <input type="password" id="loginPassword" placeholder="••••••••" required>
           </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="mostrarLoginPassword" style="margin: 0;">
+            Ver contraseña
+          </label>
           <button type="submit" style="width: 100%;">Iniciar sesión</button>
         </form>
 
@@ -46,7 +50,15 @@ function renderLogin() {
             </label>
             <label>
               Contraseña
-              <input type="password" id="registerPassword" placeholder="••••••••" required>
+              <input type="password" id="registerPassword" placeholder="••••••••" minlength="6" required>
+            </label>
+            <label>
+              Repetir contraseña
+              <input type="password" id="registerPasswordConfirm" placeholder="••••••••" minlength="6" required>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem;">
+              <input type="checkbox" id="mostrarRegisterPassword" style="margin: 0;">
+              Ver contraseña
             </label>
             <button type="submit" style="width: 100%;" class="secondary">Registrarme</button>
           </form>
@@ -59,6 +71,20 @@ function renderLogin() {
   
   document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
   document.getElementById('registerForm')?.addEventListener('submit', handleRegister);
+
+  document.getElementById('mostrarLoginPassword')?.addEventListener('change', (e) => {
+    const password = document.getElementById('loginPassword') as HTMLInputElement;
+    password.type = (e.target as HTMLInputElement).checked ? 'text' : 'password';
+  });
+
+  document.getElementById('mostrarRegisterPassword')?.addEventListener('change', (e) => {
+    const mostrar = (e.target as HTMLInputElement).checked;
+    const password = document.getElementById('registerPassword') as HTMLInputElement;
+    const confirmacion = document.getElementById('registerPasswordConfirm') as HTMLInputElement;
+    password.type = mostrar ? 'text' : 'password';
+    confirmacion.type = mostrar ? 'text' : 'password';
+  });
+
   document.getElementById('olvideClave')?.addEventListener('click', async (e) => {
     e.preventDefault();
     const email = (document.getElementById('loginEmail') as HTMLInputElement).value;
@@ -91,6 +117,14 @@ function renderNuevaPassword() {
             Nueva contraseña
             <input type="password" id="nuevaPassword" placeholder="••••••••" minlength="6" required>
           </label>
+          <label>
+            Repetir contraseña
+            <input type="password" id="nuevaPasswordConfirm" placeholder="••••••••" minlength="6" required>
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem;">
+            <input type="checkbox" id="mostrarNuevaPassword" style="margin: 0;">
+            Ver contraseña
+          </label>
           <button type="submit" style="width: 100%;">Guardar nueva contraseña</button>
         </form>
         <div id="nuevaPasswordMensaje" style="margin-top: 1rem;"></div>
@@ -98,11 +132,26 @@ function renderNuevaPassword() {
     </main>
   `;
 
+  document.getElementById('mostrarNuevaPassword')?.addEventListener('change', (e) => {
+    const mostrar = (e.target as HTMLInputElement).checked;
+    const password = document.getElementById('nuevaPassword') as HTMLInputElement;
+    const confirmacion = document.getElementById('nuevaPasswordConfirm') as HTMLInputElement;
+    password.type = mostrar ? 'text' : 'password';
+    confirmacion.type = mostrar ? 'text' : 'password';
+  });
+
   document.getElementById('nuevaPasswordForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const nueva = (document.getElementById('nuevaPassword') as HTMLInputElement).value;
+    const confirmacion = (document.getElementById('nuevaPasswordConfirm') as HTMLInputElement).value;
     const mensaje = document.getElementById('nuevaPasswordMensaje');
     if (!mensaje) return;
+
+    if (nueva !== confirmacion) {
+      mensaje.innerHTML = '<p style="color: red;">❌ Las contraseñas no coinciden</p>';
+      return;
+    }
+
     try {
       await actualizarPassword(nueva);
       mensaje.innerHTML = '<p style="color: green;">✅ Contraseña actualizada. Ya podés usar la app.</p>';
@@ -179,15 +228,22 @@ async function handleRegister(e: Event) {
   e.preventDefault();
   const email = (document.getElementById('registerEmail') as HTMLInputElement).value;
   const password = (document.getElementById('registerPassword') as HTMLInputElement).value;
+  const confirmacion = (document.getElementById('registerPasswordConfirm') as HTMLInputElement).value;
   const message = document.getElementById('authMessage');
   
   if (!message) return;
+
+  if (password !== confirmacion) {
+    message.innerHTML = '<p style="color: red;">❌ Las contraseñas no coinciden</p>';
+    return;
+  }
   
   try {
     await registrarUsuario(email, password);
     message.innerHTML = '<p style="color: green;">✅ Registro exitoso. Ahora iniciá sesión.</p>';
     (document.getElementById('registerEmail') as HTMLInputElement).value = '';
     (document.getElementById('registerPassword') as HTMLInputElement).value = '';
+    (document.getElementById('registerPasswordConfirm') as HTMLInputElement).value = '';
   } catch (error: any) {
     message.innerHTML = `<p style="color: red;">❌ ${error.message}</p>`;
   }
