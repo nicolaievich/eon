@@ -1,12 +1,13 @@
 import '@picocss/pico/css/pico.min.css';
 import { renderRegistrar } from './pages/registrar';
 import { renderConfig } from './pages/config';
+import { renderRegistros } from './pages/registros';
 import { iniciarSesion, registrarUsuario, cerrarSesion, obtenerSesion, enviarResetPassword, actualizarPassword } from './auth';
 import { supabase } from './lib/supabase';
 
 const app = document.getElementById('app');
 let usuarioActual: any = null;
-let vistaActual: 'registrar' | 'config' = 'registrar';
+let vistaActual: 'registrar' | 'registros' | 'config' = 'registrar';
 
 // ========== PANTALLA DE LOGIN ==========
 function renderLogin() {
@@ -179,6 +180,7 @@ function renderApp() {
       <nav style="margin-top: 1rem;">
         <ul>
           <li><a href="#" id="navRegistrar" role="button" class="${vistaActual === 'registrar' ? '' : 'secondary'}">📋 Registrar</a></li>
+          <li><a href="#" id="navRegistros" role="button" class="${vistaActual === 'registros' ? '' : 'secondary'}">📊 Ver registros</a></li>
           <li><a href="#" id="navConfig" role="button" class="${vistaActual === 'config' ? '' : 'secondary'}">⚙️ Configuración</a></li>
         </ul>
       </nav>
@@ -190,6 +192,7 @@ function renderApp() {
   const container = document.getElementById('vistaContainer');
   if (container) {
     if (vistaActual === 'registrar') renderRegistrar(container);
+    else if (vistaActual === 'registros') renderRegistros(container);
     else renderConfig(container);
   }
 
@@ -197,6 +200,11 @@ function renderApp() {
   document.getElementById('navRegistrar')?.addEventListener('click', (e) => {
     e.preventDefault();
     vistaActual = 'registrar';
+    renderApp();
+  });
+  document.getElementById('navRegistros')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    vistaActual = 'registros';
     renderApp();
   });
   document.getElementById('navConfig')?.addEventListener('click', (e) => {
@@ -218,7 +226,7 @@ async function handleLogin(e: Event) {
   try {
     await iniciarSesion(email, password);
     message.innerHTML = '<p style="color: green;">✅ Sesión iniciada</p>';
-    verificarSesion(); // Recargar UI
+    verificarSesion();
   } catch (error: any) {
     message.innerHTML = `<p style="color: red;">❌ ${error.message}</p>`;
   }
