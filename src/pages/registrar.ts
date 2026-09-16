@@ -13,8 +13,8 @@ let defaultClienteId: number | null = null;
 const DEFAULT_PROYECTO = 'Hermanos Calmels';
 const DEFAULT_CLIENTE = 'Hermanos Calmels';
 
-// EÓN trabaja con precisión de minuto. El timer mide segundos internamente,
-// pero el usuario ve y guarda únicamente horas y minutos.
+// EÓN trabaja con precisión de minuto para guardar y analizar.
+// El timer mide segundos internamente para mostrar el avance en vivo.
 let minutosTranscurridos = 0;
 let segundosTimer = 0;
 let timerInterval: number | null = null;
@@ -22,8 +22,6 @@ let timerCorriendo = false;
 let ultimoTick = 0;
 
 // Devuelve la fecha LOCAL del navegador en formato YYYY-MM-DD.
-// No usamos toISOString(), porque convierte a UTC y cerca de medianoche
-// podía mostrar una fecha distinta de la fecha local de Argentina.
 function fechaLocalISO(): string {
   const ahora = new Date();
   const año = ahora.getFullYear();
@@ -32,12 +30,17 @@ function fechaLocalISO(): string {
   return `${año}-${mes}-${dia}`;
 }
 
-// Convierte minutos enteros a HH:MM para mantener un único formato visual.
+// Convierte minutos enteros a HH:MM para mantener un único formato de guardado.
 function formatearTiempo(minutos: number): string {
   const total = Math.max(0, Math.floor(Number(minutos) || 0));
   const horas = Math.floor(total / 60);
   const mins = total % 60;
   return `${String(horas).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+}
+
+// Devuelve los segundos restantes del minuto actual como :SS.
+function formatearSegundos(segundos: number): string {
+  return `:${String(Math.max(0, segundos % 60)).padStart(2, '0')}`;
 }
 
 // Convierte el formato público HH:MM a minutos enteros.
@@ -48,10 +51,19 @@ function convertirAMinutos(valor: string): number | null {
   const horas = Number(match[1]);
   const minutos = Number(match[2]);
 
-  // Las horas pueden superar 99; los minutos siempre deben estar entre 00 y 59.
   if (!Number.isInteger(horas) || !Number.isInteger(minutos) || minutos > 59) return null;
 
   return horas * 60 + minutos;
+}
+
+// Actualiza la parte visual del timer sin modificar la precisión de guardado.
+function actualizarVisualTimer() {
+  const input = document.getElementById('tiempo') as HTMLInputElement | null;
+  const segundos = document.getElementById('timerSegundos');
+  if (!input || !segundos) return;
+
+  input.value = formatearTiempo(minutosTranscurridos);
+  segundos.textContent = timerCorriendo ? formatearSegundos(segundosTimer) : '';
 }
 
 // Función principal para renderizar el formulario de registro.
@@ -59,7 +71,6 @@ export async function renderRegistrar(container: HTMLElement) {
   await cargarDatos();
   await cargarDefaults();
 
-  // Al entrar nuevamente a Registrar, empezamos con el timer detenido y en cero.
   detenerTimer();
   minutosTranscurridos = 0;
   segundosTimer = 0;
@@ -69,13 +80,11 @@ export async function renderRegistrar(container: HTMLElement) {
       <h2>📋 Registrar tiempo</h2>
 
       <form id="registroForm">
-        <!-- Fecha del trabajo: utiliza la fecha LOCAL, no UTC. -->
         <label>
           Fecha *
           <input type="date" id="fecha" value="${fechaLocalISO()}" required>
         </label>
 
-        <!-- Proyecto opcional y configurable como valor predeterminado. -->
         <label>
           Proyecto
           <select id="proyecto">
@@ -88,7 +97,6 @@ export async function renderRegistrar(container: HTMLElement) {
           </select>
         </label>
 
-        <!-- Categoría obligatoria para poder analizar el tiempo después. -->
         <label>
           Categoría *
           <select id="categoria" required>
@@ -99,7 +107,6 @@ export async function renderRegistrar(container: HTMLElement) {
           </select>
         </label>
 
-        <!-- Cliente opcional y configurable como valor predeterminado. -->
         <label>
           Cliente
           <select id="cliente">
@@ -113,19 +120,22 @@ export async function renderRegistrar(container: HTMLElement) {
         </label>
 
         <!--
-          Tiempo: desde EÓN 1.1.1 la interfaz utiliza exclusivamente HH:MM.
-          El cronómetro mide segundos internamente, pero no los muestra ni los guarda.
+          Tiempo: el valor significativo sigue siendo HH:MM.
+          Mientras corre el timer, :SS aparece en gris al lado como indicador de actividad.
+          Los segundos no se guardan en la base de datos.
         -->
         <label>
           Tiempo * (HH:MM)
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <input type="text" id="tiempo" placeholder="01:30" value="00:00" required style="flex: 1;">
+            <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+              <input type="text" id="tiempo" placeholder="01:30" value="00:00" required style="flex: 1; min-width: 0;">
+              <span id="timerSegundos" aria-hidden="true" style="margin-left: 0.25rem; color: var(--pico-muted-color); font-variant-numeric: tabular-nums;"></span>
+            </div>
             <button type="button" id="timerBtn" class="secondary">▶ Iniciar</button>
             <button type="button" id="resetBtn" class="contrast">↺</button>
           </div>
         </label>
 
-        <!-- Detalle opcional de la tarea realizada. -->
         <label>
           Detalle
           <textarea id="detalle" rows="3" placeholder="¿Qué hiciste? (opcional)"></textarea>
@@ -138,7 +148,6 @@ export async function renderRegistrar(container: HTMLElement) {
     </article>
   `;
 
-  // Conectamos los eventos del formulario y del timer después de construir el HTML.
   document.getElementById('registroForm')?.addEventListener('submit', handleGuardar);
   document.getElementById('timerBtn')?.addEventListener('click', handleTimer);
   document.getElementById('resetBtn')?.addEventListener('click', handleReset);
@@ -150,7 +159,6 @@ async function cargarDatos() {
   const userId = user.data.user?.id;
   if (!userId) return;
 
-  // Solo los proyectos activos aparecen disponibles para nuevos registros.
   const { data: proyectosData } = await supabase
     .from('proyectos')
     .select('*')
@@ -159,7 +167,6 @@ async function cargarDatos() {
     .order('nombre');
   proyectos = proyectosData ?? [];
 
-  // Las categorías pertenecen al usuario autenticado.
   const { data: categoriasData } = await supabase
     .from('categorias')
     .select('*')
@@ -167,7 +174,6 @@ async function cargarDatos() {
     .order('nombre');
   categorias = categoriasData ?? [];
 
-  // Los clientes también se limitan al usuario actual.
   const { data: clientesData } = await supabase
     .from('clientes')
     .select('*')
@@ -192,17 +198,14 @@ async function cargarDefaults() {
     .single();
 
   if (data && !error) {
-    // Solo aplicamos como predeterminado un proyecto que siga disponible.
     if (data.proyecto_id && proyectos.some(p => p.id === data.proyecto_id)) {
       defaultProyectoId = data.proyecto_id;
     }
 
-    // Solo aplicamos como predeterminado un cliente que siga existiendo.
     if (data.cliente_id && clientes.some(c => c.id === data.cliente_id)) {
       defaultClienteId = data.cliente_id;
     }
   } else {
-    // Compatibilidad con configuraciones antiguas que usaban estos nombres como fallback.
     const proyectoFallback = proyectos.find(p => p.nombre === DEFAULT_PROYECTO);
     if (proyectoFallback) defaultProyectoId = proyectoFallback.id;
 
@@ -235,7 +238,6 @@ async function handleGuardar(e: Event) {
     return;
   }
 
-  // A partir de 1.1.1 solo aceptamos HH:MM.
   const tiempoMinutos = convertirAMinutos(tiempoStr);
   if (tiempoMinutos === null) {
     mensaje.innerHTML = '<p style="color: red;">❌ Formato de tiempo inválido. Usá HH:MM (por ejemplo, 01:30)</p>';
@@ -250,7 +252,6 @@ async function handleGuardar(e: Event) {
     return;
   }
 
-  // La base mantiene tiempo_minutos como entero: no se guardan segundos.
   const { error } = await supabase
     .from('registros')
     .insert({
@@ -270,17 +271,18 @@ async function handleGuardar(e: Event) {
 
   mensaje.innerHTML = '<p style="color: green;">✅ Registro guardado correctamente</p>';
 
-  // Dejamos el formulario listo para registrar la siguiente actividad.
   detenerTimer();
   minutosTranscurridos = 0;
   segundosTimer = 0;
   (document.getElementById('tiempo') as HTMLInputElement).value = '00:00';
+  const segundos = document.getElementById('timerSegundos');
+  if (segundos) segundos.textContent = '';
   (document.getElementById('detalle') as HTMLTextAreaElement).value = '';
 }
 
 // ========== TIMER ==========
-// El timer mide segundos internamente para contar con precisión, pero la pantalla
-// solo cambia cuando aparece un minuto completo. Así el usuario trabaja siempre con HH:MM.
+// El campo sigue mostrando HH:MM como dato significativo.
+// Mientras corre, :SS cambia cada segundo en gris para hacer evidente que el timer está activo.
 function handleTimer() {
   const btn = document.getElementById('timerBtn') as HTMLButtonElement;
   const input = document.getElementById('tiempo') as HTMLInputElement;
@@ -290,21 +292,22 @@ function handleTimer() {
     detenerTimer();
     btn.textContent = '▶ Iniciar';
     btn.className = 'secondary';
+    actualizarVisualTimer();
     return;
   }
 
-  // Si había un HH:MM escrito manualmente, continuamos desde ese valor.
   const valorActual = convertirAMinutos(input.value);
   if (valorActual !== null) minutosTranscurridos = valorActual;
 
-  // Date.now() evita acumular errores cuando el navegador retrasa setInterval.
   segundosTimer = minutosTranscurridos * 60;
   ultimoTick = Date.now();
   timerCorriendo = true;
   btn.textContent = '⏹ Detener';
   btn.className = 'primary';
+  actualizarVisualTimer();
 
-  // Revisamos varias veces por segundo, pero solo modificamos el campo al cambiar el minuto.
+  // Revisamos varias veces por segundo para que el segundero sea fluido.
+  // Date.now() evita acumular errores si el navegador retrasa setInterval.
   timerInterval = window.setInterval(() => {
     const ahora = Date.now();
     const transcurridos = Math.floor((ahora - ultimoTick) / 1000);
@@ -316,8 +319,9 @@ function handleTimer() {
       const nuevosMinutos = Math.floor(segundosTimer / 60);
       if (nuevosMinutos !== minutosTranscurridos) {
         minutosTranscurridos = nuevosMinutos;
-        input.value = formatearTiempo(minutosTranscurridos);
       }
+
+      actualizarVisualTimer();
     }
   }, 250);
 }
@@ -341,6 +345,8 @@ function handleReset() {
   minutosTranscurridos = 0;
   segundosTimer = 0;
   input.value = '00:00';
+  const segundos = document.getElementById('timerSegundos');
+  if (segundos) segundos.textContent = '';
   btn.textContent = '▶ Iniciar';
   btn.className = 'secondary';
 }
