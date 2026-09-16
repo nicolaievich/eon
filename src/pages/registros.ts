@@ -1,7 +1,5 @@
 import { supabase } from '../lib/supabase';
 
-// Estado local de la pantalla. Se conserva mientras la aplicación permanece abierta
-// para no perder filtros y ordenamiento al volver a esta vista.
 let registros: any[] = [];
 let busqueda = '';
 let ordenCampo = 'fecha';
@@ -24,7 +22,6 @@ function formatearFecha(fecha: string): string {
   return `${partes[2]}-${partes[1]}-${partes[0]}`;
 }
 
-// Renderiza la pantalla "Ver registros" y conecta sus controles.
 export async function renderRegistros(container: HTMLElement) {
   container.innerHTML = `
     <article>
@@ -46,7 +43,7 @@ export async function renderRegistros(container: HTMLElement) {
       </div>
 
       <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem;">
-        <button type="button" id="exportarSvg" class="secondary">⇩ Exportar SVG</button>
+        <button type="button" id="exportarCsv" class="secondary">⇩ Exportar CSV</button>
       </div>
 
       <div style="overflow-x: auto; margin-top: 1rem;">
@@ -98,7 +95,7 @@ export async function renderRegistros(container: HTMLElement) {
     });
   });
 
-  document.getElementById('exportarSvg')?.addEventListener('click', exportarSVG);
+  document.getElementById('exportarCsv')?.addEventListener('click', exportarCSV);
 
   establecerPeriodoPorDefecto();
   await cargarRegistros();
@@ -106,7 +103,6 @@ export async function renderRegistros(container: HTMLElement) {
 
 function establecerPeriodoPorDefecto() {
   if (fechaDesde || fechaHasta) return;
-
   const hoy = fechaLocalISO();
   fechaDesde = hoy;
   fechaHasta = hoy;
@@ -158,13 +154,11 @@ async function cargarRegistros() {
   mostrarRegistros();
 }
 
-// Aplica búsqueda y ordenamiento, y actualiza tabla y resumen.
 function obtenerRegistrosVisibles(): any[] {
   const termino = busqueda.trim().toLowerCase();
 
   const filtrados = registros.filter((r) => {
     if (!termino) return true;
-
     const texto = [
       r.fecha,
       formatearFecha(r.fecha),
@@ -174,21 +168,15 @@ function obtenerRegistrosVisibles(): any[] {
       formatearTiempo(r.tiempo_minutos),
       r.detalle
     ].filter(Boolean).join(' ').toLowerCase();
-
     return texto.includes(termino);
   });
 
   filtrados.sort((a, b) => {
     const valorA = valorOrden(a, ordenCampo);
     const valorB = valorOrden(b, ordenCampo);
-
     const comparacion = typeof valorA === 'number' && typeof valorB === 'number'
       ? valorA - valorB
-      : String(valorA).localeCompare(String(valorB), 'es', {
-          numeric: true,
-          sensitivity: 'base'
-        });
-
+      : String(valorA).localeCompare(String(valorB), 'es', { numeric: true, sensitivity: 'base' });
     return ordenAscendente ? comparacion : -comparacion;
   });
 
@@ -217,11 +205,7 @@ function mostrarRegistros() {
     `).join('');
   }
 
-  const totalMinutos = filtrados.reduce(
-    (total, r) => total + Number(r.tiempo_minutos || 0),
-    0
-  );
-
+  const totalMinutos = filtrados.reduce((total, r) => total + Number(r.tiempo_minutos || 0), 0);
   resumen.innerHTML = `<small>${filtrados.length} registro${filtrados.length === 1 ? '' : 's'} · Total: <strong>${formatearTiempo(totalMinutos)}</strong></small>`;
 }
 
@@ -237,72 +221,37 @@ function valorOrden(registro: any, campo: string): string | number {
   }
 }
 
-// Exporta exactamente los registros actualmente visibles, respetando búsqueda y orden.
-function exportarSVG() {
+// Escapa una celda para CSV y evita romper columnas por comas, comillas o saltos de línea.
+function escaparCSV(valor: string): string {
+  const texto = String(valor ?? '');
+  return `"${texto.replace(/"/g, '""')}"`;
+}
+
+// Exporta exactamente lo que se está viendo: período, búsqueda y orden actuales.
+// El BOM UTF-8 mejora la compatibilidad con Excel y Google Sheets, especialmente con tildes.
+function exportarCSV() {
   const visibles = obtenerRegistrosVisibles();
-  const totalMinutos = visibles.reduce(
-    (total, r) => total + Number(r.tiempo_minutos || 0),
-    0
-  );
+  const encabezados = ['Fecha', 'Proyecto', 'Categoría', 'Cliente', 'Tiempo', 'Detalle'];
 
-  const margen = 40;
-  const ancho = 1100;
-  const altoFila = 30;
-  const altoCabecera = 110;
-  const alto = altoCabecera + (visibles.length + 1) * altoFila + 40;
+  const filas = visibles.map((r) => [
+    formatearFecha(r.fecha || ''),
+    r.proyecto?.nombre || '',
+    r.categoria?.nombre || '',
+    r.cliente?.nombre || '',
+    formatearTiempo(r.tiempo_minutos),
+    r.detalle || ''
+  ]);
 
-  const esc = (valor: string) => escapar(valor);
-  const tituloPeriodo = fechaDesde && fechaHasta
-    ? `${formatearFecha(fechaDesde)} al ${formatearFecha(fechaHasta)}`
-    : 'Período seleccionado';
+  const csv = [encabezados, ...filas]
+    .map(fila => fila.map(escaparCSV).join(';'))
+    .join('\r\n');
 
-  const columnas = [
-    { nombre: 'Fecha', x: margen, ancho: 110 },
-    { nombre: 'Proyecto', x: margen + 110, ancho: 180 },
-    { nombre: 'Categoría', x: margen + 290, ancho: 180 },
-    { nombre: 'Cliente', x: margen + 470, ancho: 180 },
-    { nombre: 'Tiempo', x: margen + 650, ancho: 100 },
-    { nombre: 'Detalle', x: margen + 750, ancho: 310 }
-  ];
-
-  const filas = visibles.map((r, indice) => {
-    const y = altoCabecera + indice * altoFila;
-    const valores = [
-      formatearFecha(r.fecha || ''),
-      r.proyecto?.nombre || '—',
-      r.categoria?.nombre || '—',
-      r.cliente?.nombre || '—',
-      formatearTiempo(r.tiempo_minutos),
-      r.detalle || ''
-    ];
-
-    const fondo = indice % 2 === 0 ? '#f5f5f5' : '#ffffff';
-    return `
-      <rect x="${margen}" y="${y}" width="${ancho - margen * 2}" height="${altoFila}" fill="${fondo}"/>
-      ${valores.map((valor, i) => `<text x="${columnas[i].x + 6}" y="${y + 20}" font-family="Arial, sans-serif" font-size="13">${esc(String(valor))}</text>`).join('')}
-    `;
-  }).join('');
-
-  const cabecera = columnas.map((columna) => `
-    <text x="${columna.x + 6}" y="${altoCabecera + 20}" font-family="Arial, sans-serif" font-size="13" font-weight="bold">${columna.nombre}</text>
-  `).join('');
-
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}">
-  <rect width="100%" height="100%" fill="#ffffff"/>
-  <text x="${margen}" y="38" font-family="Arial, sans-serif" font-size="24" font-weight="bold">EÓN — Registros</text>
-  <text x="${margen}" y="65" font-family="Arial, sans-serif" font-size="14">Período: ${esc(tituloPeriodo)} · ${visibles.length} registros · Total: ${formatearTiempo(totalMinutos)}</text>
-  <line x1="${margen}" y1="${altoCabecera}" x2="${ancho - margen}" y2="${altoCabecera}" stroke="#777"/>
-  ${cabecera}
-  ${filas}
-  <text x="${margen}" y="${alto - 15}" font-family="Arial, sans-serif" font-size="11">Exportado desde EÓN</text>
-</svg>`;
-
-  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const enlace = document.createElement('a');
   enlace.href = url;
-  enlace.download = `eon-registros-${fechaDesde || 'periodo'}-${fechaHasta || 'periodo'}.svg`;
+  enlace.download = `eon-registros-${fechaDesde || 'periodo'}-${fechaHasta || 'periodo'}.csv`;
   document.body.appendChild(enlace);
   enlace.click();
   enlace.remove();
