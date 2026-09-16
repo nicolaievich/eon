@@ -9,7 +9,6 @@ let ordenAscendente = false;
 let fechaDesde = '';
 let fechaHasta = '';
 
-// Convierte minutos almacenados por EÓN al formato visible HH:MM.
 function formatearTiempo(minutos: number): string {
   const total = Math.max(0, Math.floor(Number(minutos) || 0));
   const horas = Math.floor(total / 60);
@@ -17,14 +16,20 @@ function formatearTiempo(minutos: number): string {
   return `${String(horas).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
+// Fecha de base de datos YYYY-MM-DD -> formato visual DD-MM-YYYY.
+function formatearFecha(fecha: string): string {
+  if (!fecha) return '';
+  const partes = fecha.split('-');
+  if (partes.length !== 3) return fecha;
+  return `${partes[2]}-${partes[1]}-${partes[0]}`;
+}
+
 // Renderiza la pantalla "Ver registros" y conecta sus controles.
 export async function renderRegistros(container: HTMLElement) {
-  // Construimos primero la estructura visual; luego cargamos los datos.
   container.innerHTML = `
     <article>
       <h2>📋 Ver registros</h2>
 
-      <!-- Buscador y rango de fechas. El buscador filtra en vivo los registros cargados. -->
       <div style="display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; gap: 0.75rem; align-items: end;">
         <label>
           Buscar
@@ -40,12 +45,14 @@ export async function renderRegistros(container: HTMLElement) {
         </label>
       </div>
 
-      <!-- La tabla permite desplazamiento horizontal en pantallas pequeñas. -->
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem;">
+        <button type="button" id="exportarSvg" class="secondary">⇩ Exportar SVG</button>
+      </div>
+
       <div style="overflow-x: auto; margin-top: 1rem;">
         <table>
           <thead>
             <tr>
-              <!-- Cada encabezado permite ordenar por esa columna. -->
               <th><button type="button" class="secondary outline ordenar" data-campo="fecha">Fecha ↕</button></th>
               <th><button type="button" class="secondary outline ordenar" data-campo="proyecto">Proyecto ↕</button></th>
               <th><button type="button" class="secondary outline ordenar" data-campo="categoria">Categoría ↕</button></th>
@@ -60,18 +67,15 @@ export async function renderRegistros(container: HTMLElement) {
         </table>
       </div>
 
-      <!-- Resumen del resultado actualmente visible. -->
       <div id="registrosResumen" style="margin-top: 1rem;"></div>
     </article>
   `;
 
-  // El buscador trabaja en memoria para responder inmediatamente al escribir.
   document.getElementById('buscarRegistros')?.addEventListener('input', (e) => {
     busqueda = (e.target as HTMLInputElement).value;
     mostrarRegistros();
   });
 
-  // Los filtros de fecha sí vuelven a consultar la base de datos.
   document.getElementById('fechaDesde')?.addEventListener('change', (e) => {
     fechaDesde = (e.target as HTMLInputElement).value;
     cargarRegistros();
@@ -82,32 +86,27 @@ export async function renderRegistros(container: HTMLElement) {
     cargarRegistros();
   });
 
-  // Ordenamiento local de las seis columnas visibles.
   document.querySelectorAll('.ordenar').forEach((boton) => {
     boton.addEventListener('click', () => {
       const campo = (boton as HTMLElement).dataset.campo || 'fecha';
-
-      // Repetir la misma columna invierte el sentido. Una columna nueva comienza ASC.
       if (ordenCampo === campo) ordenAscendente = !ordenAscendente;
       else {
         ordenCampo = campo;
         ordenAscendente = true;
       }
-
       mostrarRegistros();
     });
   });
 
-  // La primera entrada sin filtros previos muestra únicamente el día actual.
+  document.getElementById('exportarSvg')?.addEventListener('click', exportarSVG);
+
   establecerPeriodoPorDefecto();
   await cargarRegistros();
 }
 
-// Define hoy como período inicial si todavía no existe un filtro guardado.
 function establecerPeriodoPorDefecto() {
   if (fechaDesde || fechaHasta) return;
 
-  // Usamos fecha local, no UTC, para que "hoy" coincida con la fecha del usuario.
   const hoy = fechaLocalISO();
   fechaDesde = hoy;
   fechaHasta = hoy;
@@ -118,7 +117,6 @@ function establecerPeriodoPorDefecto() {
   if (hasta) hasta.value = hoy;
 }
 
-// Devuelve YYYY-MM-DD usando la fecha local del navegador.
 function fechaLocalISO(): string {
   const ahora = new Date();
   const año = ahora.getFullYear();
@@ -127,14 +125,12 @@ function fechaLocalISO(): string {
   return `${año}-${mes}-${dia}`;
 }
 
-// Consulta solamente los registros pertenecientes al usuario autenticado.
 async function cargarRegistros() {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
   const body = document.getElementById('registrosBody');
   if (!userId || !body) return;
 
-  // Solicitamos únicamente los datos necesarios para la tabla y sus relaciones.
   let query = supabase
     .from('registros')
     .select(`
@@ -148,11 +144,9 @@ async function cargarRegistros() {
     `)
     .eq('user_id', userId);
 
-  // El rango se filtra en Supabase para no descargar datos innecesarios.
   if (fechaDesde) query = query.gte('fecha', fechaDesde);
   if (fechaHasta) query = query.lte('fecha', fechaHasta);
 
-  // El orden inicial es el solicitado: más reciente primero.
   const { data, error } = await query.order('fecha', { ascending: false });
 
   if (error) {
@@ -165,19 +159,15 @@ async function cargarRegistros() {
 }
 
 // Aplica búsqueda y ordenamiento, y actualiza tabla y resumen.
-function mostrarRegistros() {
-  const body = document.getElementById('registrosBody');
-  const resumen = document.getElementById('registrosResumen');
-  if (!body || !resumen) return;
-
+function obtenerRegistrosVisibles(): any[] {
   const termino = busqueda.trim().toLowerCase();
 
-  // La búsqueda recorre todas las columnas visibles, incluyendo HH:MM.
-  let filtrados = registros.filter((r) => {
+  const filtrados = registros.filter((r) => {
     if (!termino) return true;
 
     const texto = [
       r.fecha,
+      formatearFecha(r.fecha),
       r.proyecto?.nombre,
       r.categoria?.nombre,
       r.cliente?.nombre,
@@ -188,7 +178,6 @@ function mostrarRegistros() {
     return texto.includes(termino);
   });
 
-  // Ordenamiento local para no volver a consultar Supabase al pulsar una columna.
   filtrados.sort((a, b) => {
     const valorA = valorOrden(a, ordenCampo);
     const valorB = valorOrden(b, ordenCampo);
@@ -203,13 +192,22 @@ function mostrarRegistros() {
     return ordenAscendente ? comparacion : -comparacion;
   });
 
+  return filtrados;
+}
+
+function mostrarRegistros() {
+  const body = document.getElementById('registrosBody');
+  const resumen = document.getElementById('registrosResumen');
+  if (!body || !resumen) return;
+
+  const filtrados = obtenerRegistrosVisibles();
+
   if (!filtrados.length) {
     body.innerHTML = '<tr><td colspan="6">No hay registros para mostrar.</td></tr>';
   } else {
-    // Escapamos valores de la base antes de insertarlos en HTML.
     body.innerHTML = filtrados.map((r) => `
       <tr>
-        <td>${escapar(r.fecha || '')}</td>
+        <td>${escapar(formatearFecha(r.fecha || ''))}</td>
         <td>${escapar(r.proyecto?.nombre || '—')}</td>
         <td>${escapar(r.categoria?.nombre || '—')}</td>
         <td>${escapar(r.cliente?.nombre || '—')}</td>
@@ -219,7 +217,6 @@ function mostrarRegistros() {
     `).join('');
   }
 
-  // El total también se expresa en HH:MM, coherente con la entrada de tiempo.
   const totalMinutos = filtrados.reduce(
     (total, r) => total + Number(r.tiempo_minutos || 0),
     0
@@ -228,7 +225,6 @@ function mostrarRegistros() {
   resumen.innerHTML = `<small>${filtrados.length} registro${filtrados.length === 1 ? '' : 's'} · Total: <strong>${formatearTiempo(totalMinutos)}</strong></small>`;
 }
 
-// Obtiene el valor comparable de una columna.
 function valorOrden(registro: any, campo: string): string | number {
   switch (campo) {
     case 'fecha': return registro.fecha || '';
@@ -241,7 +237,78 @@ function valorOrden(registro: any, campo: string): string | number {
   }
 }
 
-// Escape básico de texto antes de usarlo dentro de innerHTML.
+// Exporta exactamente los registros actualmente visibles, respetando búsqueda y orden.
+function exportarSVG() {
+  const visibles = obtenerRegistrosVisibles();
+  const totalMinutos = visibles.reduce(
+    (total, r) => total + Number(r.tiempo_minutos || 0),
+    0
+  );
+
+  const margen = 40;
+  const ancho = 1100;
+  const altoFila = 30;
+  const altoCabecera = 110;
+  const alto = altoCabecera + (visibles.length + 1) * altoFila + 40;
+
+  const esc = (valor: string) => escapar(valor);
+  const tituloPeriodo = fechaDesde && fechaHasta
+    ? `${formatearFecha(fechaDesde)} al ${formatearFecha(fechaHasta)}`
+    : 'Período seleccionado';
+
+  const columnas = [
+    { nombre: 'Fecha', x: margen, ancho: 110 },
+    { nombre: 'Proyecto', x: margen + 110, ancho: 180 },
+    { nombre: 'Categoría', x: margen + 290, ancho: 180 },
+    { nombre: 'Cliente', x: margen + 470, ancho: 180 },
+    { nombre: 'Tiempo', x: margen + 650, ancho: 100 },
+    { nombre: 'Detalle', x: margen + 750, ancho: 310 }
+  ];
+
+  const filas = visibles.map((r, indice) => {
+    const y = altoCabecera + indice * altoFila;
+    const valores = [
+      formatearFecha(r.fecha || ''),
+      r.proyecto?.nombre || '—',
+      r.categoria?.nombre || '—',
+      r.cliente?.nombre || '—',
+      formatearTiempo(r.tiempo_minutos),
+      r.detalle || ''
+    ];
+
+    const fondo = indice % 2 === 0 ? '#f5f5f5' : '#ffffff';
+    return `
+      <rect x="${margen}" y="${y}" width="${ancho - margen * 2}" height="${altoFila}" fill="${fondo}"/>
+      ${valores.map((valor, i) => `<text x="${columnas[i].x + 6}" y="${y + 20}" font-family="Arial, sans-serif" font-size="13">${esc(String(valor))}</text>`).join('')}
+    `;
+  }).join('');
+
+  const cabecera = columnas.map((columna) => `
+    <text x="${columna.x + 6}" y="${altoCabecera + 20}" font-family="Arial, sans-serif" font-size="13" font-weight="bold">${columna.nombre}</text>
+  `).join('');
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${ancho}" height="${alto}" viewBox="0 0 ${ancho} ${alto}">
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <text x="${margen}" y="38" font-family="Arial, sans-serif" font-size="24" font-weight="bold">EÓN — Registros</text>
+  <text x="${margen}" y="65" font-family="Arial, sans-serif" font-size="14">Período: ${esc(tituloPeriodo)} · ${visibles.length} registros · Total: ${formatearTiempo(totalMinutos)}</text>
+  <line x1="${margen}" y1="${altoCabecera}" x2="${ancho - margen}" y2="${altoCabecera}" stroke="#777"/>
+  ${cabecera}
+  ${filas}
+  <text x="${margen}" y="${alto - 15}" font-family="Arial, sans-serif" font-size="11">Exportado desde EÓN</text>
+</svg>`;
+
+  const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = `eon-registros-${fechaDesde || 'periodo'}-${fechaHasta || 'periodo'}.svg`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  URL.revokeObjectURL(url);
+}
+
 function escapar(valor: string) {
   return valor
     .replace(/&/g, '&amp;')
