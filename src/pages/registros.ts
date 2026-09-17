@@ -8,7 +8,7 @@ let ordenAscendente = false;
 let fechaDesde = '';
 let fechaHasta = '';
 
-// Catálogos usados por el editor.
+// Catálogos usados por el editor y también por el resumen por categoría.
 let proyectos: any[] = [];
 let categorias: any[] = [];
 let clientes: any[] = [];
@@ -57,8 +57,7 @@ function escapar(valor: string): string {
     .replace(/'/g, '&#039;');
 }
 
-// Supabase puede tipar una relación como objeto o como arreglo según la relación detectada.
-// Esta función normaliza ambos casos para obtener el nombre sin romper la compilación.
+// Supabase puede devolver una relación como objeto o como arreglo.
 function obtenerNombreRelacion(relacion: any): string {
   if (Array.isArray(relacion)) return relacion[0]?.nombre || '';
   return relacion?.nombre || '';
@@ -70,8 +69,8 @@ export async function renderRegistros(container: HTMLElement) {
       <h2>📊 Resumen y registros</h2>
 
       <section id="resumenHoras" aria-label="Resumen de horas">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
-          <article style="margin: 0;">
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem;">
+          <article style="margin: 0; grid-column: 1 / -1;">
             <header style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
               <strong>HOY</strong>
               <strong id="horasDia">—</strong>
@@ -255,7 +254,7 @@ async function obtenerUsuarioId(): Promise<string | null> {
   return user.data.user?.id ?? null;
 }
 
-// Carga los catálogos una sola vez para que el editor use las mismas relaciones que Registrar.
+// Carga los catálogos una sola vez para que el editor y el resumen usen los mismos datos.
 async function cargarCatalogos() {
   const userId = await obtenerUsuarioId();
   if (!userId) return;
@@ -314,7 +313,9 @@ async function cargarRegistros() {
   mostrarRegistros();
 }
 
-// Resumen independiente de los filtros de la tabla: siempre representa el día, semana y mes actuales.
+// Resumen independiente de los filtros de la tabla.
+// Una sola consulta obtiene las horas desde el comienzo de la semana/mes.
+// Los nombres de categoría salen del catálogo ya cargado, sin otra relación de Supabase.
 async function cargarResumen() {
   const userId = await obtenerUsuarioId();
   if (!userId) return;
@@ -323,21 +324,27 @@ async function cargarResumen() {
   const hoyISO = fechaLocalISO(hoy);
   const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
-  // Semana laboral: lunes a domingo.
+  // Semana: lunes a domingo.
   const diaSemana = hoy.getDay();
   const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
-  const semanaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - diasDesdeLunes);
-  const desdeISO = fechaLocalISO(mesInicio < semanaInicio ? mesInicio : semanaInicio);
+  const semanaInicio = new Date(
+    hoy.getFullYear(),
+    hoy.getMonth(),
+    hoy.getDate() - diasDesdeLunes
+  );
 
-  // Consulta simple: los totales no dependen de ninguna relación de categorías.
+  const semanaISO = fechaLocalISO(semanaInicio);
+  const mesISO = fechaLocalISO(mesInicio);
+
   const { data, error } = await supabase
     .from('registros')
-    .select('fecha, tiempo_minutos')
+    .select('fecha, tiempo_minutos, categoria_id')
     .eq('user_id', userId)
-    .gte('fecha', desdeISO)
+    .gte('fecha', mesISO)
     .lte('fecha', hoyISO);
 
   if (error) {
+    console.error('EÓN: error al cargar resumen:', error);
     const ids = ['horasDia', 'horasSemana', 'horasMes'];
     ids.forEach(id => {
       const elemento = document.getElementById(id);
@@ -349,40 +356,35 @@ async function cargarResumen() {
   }
 
   const datos: any[] = data ?? [];
-  const inicioSemanaISO = fechaLocalISO(semanaInicio);
-  const inicioMesISO = fechaLocalISO(mesInicio);
+  const sumar = (lista: any[]) => lista.reduce(
+    (total, registro) => total + Number(registro.tiempo_minutos || 0),
+    0
+  );
 
-  const hoyTotal = datos.filter(r => r.fecha === hoyISO).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
-  const semanaTotal = datos.filter(r => r.fecha >= inicioSemanaISO).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
-  const mesTotal = datos.filter(r => r.fecha >= inicioMesISO).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
+  // Totales generales. HOY suma todos los registros del día, sin importar categoría.
+  const totalHoy = sumar(datos.filter(r => r.fecha === hoyISO));
+  const totalSemana = sumar(datos.filter(r => r.fecha >= semanaISO));
+  const totalMes = sumar(datos);
 
   const horasDia = document.getElementById('horasDia');
   const horasSemana = document.getElementById('horasSemana');
   const horasMes = document.getElementById('horasMes');
-  if (horasDia) horasDia.textContent = formatearTiempo(hoyTotal);
-  if (horasSemana) horasSemana.textContent = formatearTiempo(semanaTotal);
-  if (horasMes) horasMes.textContent = formatearTiempo(mesTotal);
+  if (horasDia) horasDia.textContent = formatearTiempo(totalHoy);
+  if (horasSemana) horasSemana.textContent = formatearTiempo(totalSemana);
+  if (horasMes) horasMes.textContent = formatearTiempo(totalMes);
 
-  // El detalle por categoría se consulta por separado para que no pueda impedir los totales.
-  const { data: categoriasData, error: categoriasError } = await supabase
-    .from('registros')
-    .select('fecha, tiempo_minutos, categoria:categorias(nombre)')
-    .eq('user_id', userId)
-    .gte('fecha', inicioMesISO)
-    .lte('fecha', hoyISO);
-
+  // Detalle del mes agrupado por categoría.
   const detalle = document.getElementById('detalleCategorias');
   if (!detalle) return;
 
-  if (categoriasError) {
-    detalle.innerHTML = `<small style="color: red;">❌ ${escapar(categoriasError.message)}</small>`;
-    return;
-  }
+  const nombresCategorias = new Map(
+    categorias.map(c => [String(c.id), String(c.nombre || '')])
+  );
 
   const porCategoria = new Map<string, number>();
-  (categoriasData ?? []).forEach((r: any) => {
-    const nombre = obtenerNombreRelacion(r.categoria) || 'Sin categoría';
-    porCategoria.set(nombre, (porCategoria.get(nombre) || 0) + Number(r.tiempo_minutos || 0));
+  datos.forEach((registro: any) => {
+    const nombre = nombresCategorias.get(String(registro.categoria_id)) || 'Sin categoría';
+    porCategoria.set(nombre, (porCategoria.get(nombre) || 0) + Number(registro.tiempo_minutos || 0));
   });
 
   if (!porCategoria.size) {
