@@ -15,12 +15,6 @@ let registrosOrdenAsc = false;
 let registrosDesde = '';
 let registrosHasta = '';
 
-interface Catalogo {
-  id: number;
-  nombre: string;
-  [key: string]: any;
-}
-
 function fechaLocalISO(fecha = new Date()): string {
   const año = fecha.getFullYear();
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
