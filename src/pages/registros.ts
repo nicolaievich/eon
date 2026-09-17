@@ -57,6 +57,13 @@ function escapar(valor: string): string {
     .replace(/'/g, '&#039;');
 }
 
+// Supabase puede tipar una relación como objeto o como arreglo según la relación detectada.
+// Esta función normaliza ambos casos para obtener el nombre sin romper la compilación.
+function obtenerNombreRelacion(relacion: any): string {
+  if (Array.isArray(relacion)) return relacion[0]?.nombre || '';
+  return relacion?.nombre || '';
+}
+
 export async function renderRegistros(container: HTMLElement) {
   container.innerHTML = `
     <article>
@@ -257,7 +264,6 @@ async function cargarCatalogos() {
   categorias = categoriasResult.data ?? [];
   clientes = clientesResult.data ?? [];
 
-  // Los catálogos llegan después del HTML inicial; actualizamos las opciones del editor.
   const proyecto = document.getElementById('editarProyecto');
   const categoria = document.getElementById('editarCategoria');
   const cliente = document.getElementById('editarCliente');
@@ -311,7 +317,7 @@ async function cargarResumen() {
   const hoyISO = fechaLocalISO(hoy);
   const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
 
-  // Semana ISO práctica para uso laboral: lunes a domingo.
+  // Semana laboral: lunes a domingo.
   const diaSemana = hoy.getDay();
   const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
   const semanaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - diasDesdeLunes);
@@ -330,10 +336,14 @@ async function cargarResumen() {
     return;
   }
 
-  const datos = data ?? [];
+  // Normalizamos la respuesta porque Supabase puede devolver la relación como objeto o arreglo.
+  const datos: any[] = data ?? [];
+  const inicioSemanaISO = fechaLocalISO(semanaInicio);
+  const inicioMesISO = fechaLocalISO(mesInicio);
+
   const hoyTotal = datos.filter(r => r.fecha === hoyISO).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
-  const semanaTotal = datos.filter(r => r.fecha >= fechaLocalISO(semanaInicio)).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
-  const mesTotal = datos.filter(r => r.fecha >= fechaLocalISO(mesInicio)).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
+  const semanaTotal = datos.filter(r => r.fecha >= inicioSemanaISO).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
+  const mesTotal = datos.filter(r => r.fecha >= inicioMesISO).reduce((t, r) => t + Number(r.tiempo_minutos || 0), 0);
 
   const horasDia = document.getElementById('horasDia');
   const horasSemana = document.getElementById('horasSemana');
@@ -343,8 +353,8 @@ async function cargarResumen() {
   if (horasMes) horasMes.textContent = formatearTiempo(mesTotal);
 
   const porCategoria = new Map<string, number>();
-  datos.filter(r => r.fecha >= fechaLocalISO(mesInicio)).forEach(r => {
-    const nombre = r.categoria?.nombre || 'Sin categoría';
+  datos.filter(r => r.fecha >= inicioMesISO).forEach(r => {
+    const nombre = obtenerNombreRelacion(r.categoria) || 'Sin categoría';
     porCategoria.set(nombre, (porCategoria.get(nombre) || 0) + Number(r.tiempo_minutos || 0));
   });
 
@@ -411,9 +421,9 @@ function mostrarRegistros() {
     body.innerHTML = filtrados.map((r) => `
       <tr>
         <td>${escapar(formatearFecha(r.fecha || ''))}</td>
-        <td>${escapar(r.proyecto?.nombre || '—')}</td>
-        <td>${escapar(r.categoria?.nombre || '—')}</td>
-        <td>${escapar(r.cliente?.nombre || '—')}</td>
+        <td>${escapar(obtenerNombreRelacion(r.proyecto) || '—')}</td>
+        <td>${escapar(obtenerNombreRelacion(r.categoria) || '—')}</td>
+        <td>${escapar(obtenerNombreRelacion(r.cliente) || '—')}</td>
         <td>${formatearTiempo(r.tiempo_minutos)}</td>
         <td>${escapar(r.detalle || '')}</td>
         <td><button type="button" class="secondary outline editarRegistro" data-id="${escapar(String(r.id))}">✏️ Editar</button></td>
@@ -432,9 +442,9 @@ function mostrarRegistros() {
 function valorOrden(registro: any, campo: string): string | number {
   switch (campo) {
     case 'fecha': return registro.fecha || '';
-    case 'proyecto': return registro.proyecto?.nombre || '';
-    case 'categoria': return registro.categoria?.nombre || '';
-    case 'cliente': return registro.cliente?.nombre || '';
+    case 'proyecto': return obtenerNombreRelacion(registro.proyecto);
+    case 'categoria': return obtenerNombreRelacion(registro.categoria);
+    case 'cliente': return obtenerNombreRelacion(registro.cliente);
     case 'tiempo': return Number(registro.tiempo_minutos || 0);
     case 'detalle': return registro.detalle || '';
     default: return '';
@@ -539,9 +549,9 @@ function exportarCSV() {
 
   const filas = visibles.map((r) => [
     formatearFecha(r.fecha || ''),
-    r.proyecto?.nombre || '',
-    r.categoria?.nombre || '',
-    r.cliente?.nombre || '',
+    obtenerNombreRelacion(r.proyecto),
+    obtenerNombreRelacion(r.categoria),
+    obtenerNombreRelacion(r.cliente),
     formatearTiempo(r.tiempo_minutos),
     r.detalle || ''
   ]);
