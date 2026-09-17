@@ -8,3 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// El resumen visual se carga como mejora de la vista Ver registros.
+// Es dinámico porque la SPA crea esa vista después de iniciar sesión.
+void import('../pages/resumen');
