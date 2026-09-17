@@ -1,7 +1,7 @@
-import { Chart, ArcElement, Tooltip } from 'chart.js';
 import { supabase } from '../lib/supabase';
 
-// Registro mínimo necesario para construir los resúmenes por período.
+declare const Chart: any;
+
 interface RegistroResumen {
   fecha: string;
   tiempo_minutos: number | null;
@@ -16,10 +16,8 @@ interface RegistroResumen {
   }> | null;
 }
 
-Chart.register(ArcElement, Tooltip);
-
 let observadorActivo = false;
-let graficos: Chart[] = [];
+let graficos: any[] = [];
 
 function fechaLocalISO(fecha = new Date()): string {
   const año = fecha.getFullYear();
@@ -64,7 +62,6 @@ function destruirGraficos() {
   graficos = [];
 }
 
-// Observa la SPA porque Ver registros se construye dinámicamente dentro de main.ts.
 function iniciarObservador() {
   if (observadorActivo) return;
   observadorActivo = true;
@@ -82,7 +79,7 @@ function iniciarObservador() {
 
 async function cargarYMostrarResumen() {
   const resumen = document.getElementById('resumenHoras');
-  if (!resumen) return;
+  if (!resumen || typeof Chart === 'undefined') return;
 
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
@@ -91,12 +88,15 @@ async function cargarYMostrarResumen() {
   const hoy = new Date();
   const hoyISO = fechaLocalISO(hoy);
   const semanaISO = fechaLocalISO(inicioSemana(hoy));
+  const mesISO = fechaLocalISO(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
 
+  // Se consulta desde el inicio del mes para poder construir correctamente
+  // los tres períodos con una sola fuente de datos.
   const { data, error } = await supabase
     .from('registros')
     .select('fecha, tiempo_minutos, categoria:categorias(id,nombre,color)')
     .eq('user_id', userId)
-    .gte('fecha', semanaISO)
+    .gte('fecha', mesISO)
     .lte('fecha', hoyISO);
 
   if (error) {
@@ -104,52 +104,28 @@ async function cargarYMostrarResumen() {
     return;
   }
 
-  const registros = (data ?? []) as RegistroResumen[];
-  const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const mesISO = fechaLocalISO(mesInicio);
-
-  // La semana puede comenzar en el mes anterior; por eso también se consulta el mes
-  // cuando corresponde para que el resumen mensual sea completo.
-  let registrosMes = registros;
-  if (mesISO < semanaISO) {
-    const resultadoMes = await supabase
-      .from('registros')
-      .select('fecha, tiempo_minutos, categoria:categorias(id,nombre,color)')
-      .eq('user_id', userId)
-      .gte('fecha', mesISO)
-      .lte('fecha', hoyISO);
-    if (resultadoMes.error) {
-      resumen.innerHTML = `<small style="color:red;">❌ ${escapar(resultadoMes.error.message)}</small>`;
-      return;
-    }
-    registrosMes = (resultadoMes.data ?? []) as RegistroResumen[];
-  }
-
   destruirGraficos();
   resumen.innerHTML = `
     <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1rem;">
       <article style="margin:0;">
         <header style="margin-bottom:0.75rem;"><strong>HOY</strong></header>
-        <div id="resumenHoy" class="eon-resumen-periodo"></div>
+        <div id="resumenHoy"></div>
       </article>
       <article style="margin:0;">
         <header style="margin-bottom:0.75rem;"><strong>ESTA SEMANA</strong></header>
-        <div id="resumenSemana" class="eon-resumen-periodo"></div>
+        <div id="resumenSemana"></div>
       </article>
       <article style="margin:0;">
         <header style="margin-bottom:0.75rem;"><strong>ESTE MES</strong></header>
-        <div id="resumenMes" class="eon-resumen-periodo"></div>
+        <div id="resumenMes"></div>
       </article>
     </div>
   `;
 
-  const mesRegistros = registrosMes.filter(r => r.fecha >= mesISO);
-  const semanaRegistros = registros.filter(r => r.fecha >= semanaISO);
-  const hoyRegistros = registros.filter(r => r.fecha === hoyISO);
-
-  pintarPeriodo('resumenHoy', hoyRegistros, 'graficoHoy');
-  pintarPeriodo('resumenSemana', semanaRegistros, 'graficoSemana');
-  pintarPeriodo('resumenMes', mesRegistros, 'graficoMes');
+  const registros = (data ?? []) as RegistroResumen[];
+  pintarPeriodo('resumenHoy', registros.filter(r => r.fecha === hoyISO), 'graficoHoy');
+  pintarPeriodo('resumenSemana', registros.filter(r => r.fecha >= semanaISO), 'graficoSemana');
+  pintarPeriodo('resumenMes', registros.filter(r => r.fecha >= mesISO), 'graficoMes');
 
   resumen.dataset.eonGrafico = 'listo';
 }
@@ -219,7 +195,7 @@ function pintarPeriodo(contenedorId: string, registros: RegistroResumen[], canva
         legend: { display: false },
         tooltip: {
           callbacks: {
-            label: (context) => {
+            label: (context: any) => {
               const valor = Number(context.raw || 0);
               return ` ${context.label}: ${formatearTiempo(valor)}`;
             }
@@ -232,5 +208,4 @@ function pintarPeriodo(contenedorId: string, registros: RegistroResumen[], canva
   graficos.push(grafico);
 }
 
-// Se carga una sola vez al iniciar EÓN.
 iniciarObservador();
