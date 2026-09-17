@@ -71,17 +71,23 @@ export async function renderRegistros(container: HTMLElement) {
 
       <section id="resumenHoras" aria-label="Resumen de horas">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem;">
-          <article style="margin: 0; text-align: center;">
-            <small>Hoy</small>
-            <h3 id="horasDia">—</h3>
+          <article style="margin: 0;">
+            <header style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+              <strong>HOY</strong>
+              <strong id="horasDia">—</strong>
+            </header>
           </article>
-          <article style="margin: 0; text-align: center;">
-            <small>Esta semana</small>
-            <h3 id="horasSemana">—</h3>
+          <article style="margin: 0;">
+            <header style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+              <strong>ESTA SEMANA</strong>
+              <strong id="horasSemana">—</strong>
+            </header>
           </article>
-          <article style="margin: 0; text-align: center;">
-            <small>Este mes</small>
-            <h3 id="horasMes">—</h3>
+          <article style="margin: 0;">
+            <header style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
+              <strong>ESTE MES</strong>
+              <strong id="horasMes">—</strong>
+            </header>
           </article>
         </div>
 
