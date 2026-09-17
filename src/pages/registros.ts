@@ -72,8 +72,7 @@ export async function renderRegistros(container: HTMLElement) {
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem;">
           <article style="margin: 0; grid-column: 1 / -1;">
             <header style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
-              <strong>HOY</strong>
-              <strong id="horasDia">—</strong>
+              <strong>HOY (<span id="horasDia">—</span>)</strong>
             </header>
           </article>
           <article style="margin: 0;">
