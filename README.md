@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.5.3**
+**Versión funcional: 1.5.4**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -27,6 +27,7 @@ EÓN utiliza una numeración funcional simple:
 - `1.5.1` → corrección de compilación de la versión 1.5.
 - `1.5.2` → mejoras del formulario de registro: limpieza automática después de guardar e identificación visual de categorías por color.
 - `1.5.3` → corrección del selector de categorías para mostrar correctamente los colores guardados en Supabase.
+- `1.5.4` → corrección visual del selector de categorías: fondo blanco y texto negro en las opciones.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
