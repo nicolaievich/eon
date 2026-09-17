@@ -56,6 +56,13 @@ function convertirAMinutos(valor: string): number | null {
   return horas * 60 + minutos;
 }
 
+// Los colores vienen de configuración. Solo aceptamos hexadecimales válidos
+// para poder utilizarlos de forma segura en estilos inline.
+function colorCategoria(color: unknown): string {
+  const valor = String(color ?? '').trim();
+  return /^#[0-9a-fA-F]{3,8}$/.test(valor) ? valor : '#808080';
+}
+
 // Actualiza la parte visual del timer sin modificar la precisión de guardado.
 function actualizarVisualTimer() {
   const input = document.getElementById('tiempo') as HTMLInputElement | null;
@@ -64,6 +71,47 @@ function actualizarVisualTimer() {
 
   input.value = formatearTiempo(minutosTranscurridos);
   segundos.textContent = timerCorriendo ? formatearSegundos(segundosTimer) : '';
+}
+
+// Actualiza el indicador de color que queda a la izquierda del selector.
+function actualizarColorCategoria() {
+  const select = document.getElementById('categoria') as HTMLSelectElement | null;
+  const indicador = document.getElementById('categoriaColor');
+  if (!select || !indicador) return;
+
+  const categoria = categorias.find(c => String(c.id) === select.value);
+  indicador.style.backgroundColor = categoria ? colorCategoria(categoria.color) : 'transparent';
+}
+
+// Deja el formulario listo para cargar el siguiente registro.
+// Se conserva la fecha actual y los valores predeterminados de proyecto/cliente.
+function limpiarFormularioDespuesDeGuardar() {
+  const fecha = document.getElementById('fecha') as HTMLInputElement | null;
+  const proyecto = document.getElementById('proyecto') as HTMLSelectElement | null;
+  const categoria = document.getElementById('categoria') as HTMLSelectElement | null;
+  const cliente = document.getElementById('cliente') as HTMLSelectElement | null;
+  const tiempo = document.getElementById('tiempo') as HTMLInputElement | null;
+  const detalle = document.getElementById('detalle') as HTMLTextAreaElement | null;
+  const segundos = document.getElementById('timerSegundos');
+  const timerBtn = document.getElementById('timerBtn') as HTMLButtonElement | null;
+
+  detenerTimer();
+  minutosTranscurridos = 0;
+  segundosTimer = 0;
+
+  if (fecha) fecha.value = fechaLocalISO();
+  if (proyecto) proyecto.value = defaultProyectoId !== null ? String(defaultProyectoId) : '';
+  if (categoria) categoria.value = '';
+  if (cliente) cliente.value = defaultClienteId !== null ? String(defaultClienteId) : '';
+  if (tiempo) tiempo.value = '00:00';
+  if (detalle) detalle.value = '';
+  if (segundos) segundos.textContent = '';
+  if (timerBtn) {
+    timerBtn.textContent = '▶ Iniciar';
+    timerBtn.className = 'secondary';
+  }
+
+  actualizarColorCategoria();
 }
 
 // Función principal para renderizar el formulario de registro.
@@ -99,12 +147,15 @@ export async function renderRegistrar(container: HTMLElement) {
 
         <label>
           Categoría *
-          <select id="categoria" required>
-            <option value="">Seleccionar categoría</option>
-            ${categorias.map(c => `
-              <option value="${c.id}">${escapeHtml(c.nombre)}</option>
-            `).join('')}
-          </select>
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span id="categoriaColor" aria-hidden="true" style="display:inline-block;width:0.9rem;height:0.9rem;border-radius:50%;flex:0 0 0.9rem;border:1px solid var(--pico-muted-border-color);background:transparent;"></span>
+            <select id="categoria" required style="flex:1;">
+              <option value="">Seleccionar categoría</option>
+              ${categorias.map(c => `
+                <option value="${c.id}" style="color:${colorCategoria(c.color)};">● ${escapeHtml(c.nombre)}</option>
+              `).join('')}
+            </select>
+          </div>
         </label>
 
         <label>
@@ -151,6 +202,8 @@ export async function renderRegistrar(container: HTMLElement) {
   document.getElementById('registroForm')?.addEventListener('submit', handleGuardar);
   document.getElementById('timerBtn')?.addEventListener('click', handleTimer);
   document.getElementById('resetBtn')?.addEventListener('click', handleReset);
+  document.getElementById('categoria')?.addEventListener('change', actualizarColorCategoria);
+  actualizarColorCategoria();
 }
 
 // ========== CARGAR DATOS DESDE SUPABASE ==========
@@ -270,14 +323,7 @@ async function handleGuardar(e: Event) {
   }
 
   mensaje.innerHTML = '<p style="color: green;">✅ Registro guardado correctamente</p>';
-
-  detenerTimer();
-  minutosTranscurridos = 0;
-  segundosTimer = 0;
-  (document.getElementById('tiempo') as HTMLInputElement).value = '00:00';
-  const segundos = document.getElementById('timerSegundos');
-  if (segundos) segundos.textContent = '';
-  (document.getElementById('detalle') as HTMLTextAreaElement).value = '';
+  limpiarFormularioDespuesDeGuardar();
 }
 
 // ========== TIMER ==========
