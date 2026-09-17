@@ -70,11 +70,15 @@ export async function renderRegistros(container: HTMLElement) {
 
       <section id="resumenHoras" aria-label="Resumen de horas">
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem;">
+          <!-- HOY ocupa todo el ancho. El total queda junto al título. -->
           <article style="margin: 0; grid-column: 1 / -1;">
             <header style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
-              <strong>HOY (<span id="horasDia">—</span>)</strong>
+              <strong>HOY</strong>
+              <strong id="horasDia">—</strong>
             </header>
           </article>
+
+          <!-- Semana y mes ocupan cada uno la mitad del ancho. -->
           <article style="margin: 0;">
             <header style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.5rem;">
               <strong>ESTA SEMANA</strong>
@@ -313,8 +317,7 @@ async function cargarRegistros() {
 }
 
 // Resumen independiente de los filtros de la tabla.
-// Una sola consulta obtiene las horas desde el comienzo de la semana/mes.
-// Los nombres de categoría salen del catálogo ya cargado, sin otra relación de Supabase.
+// Una sola consulta obtiene las horas desde el comienzo del mes.
 async function cargarResumen() {
   const userId = await obtenerUsuarioId();
   if (!userId) return;
@@ -360,7 +363,7 @@ async function cargarResumen() {
     0
   );
 
-  // Totales generales. HOY suma todos los registros del día, sin importar categoría.
+  // HOY suma todos los registros del día, sin importar categoría.
   const totalHoy = sumar(datos.filter(r => r.fecha === hoyISO));
   const totalSemana = sumar(datos.filter(r => r.fecha >= semanaISO));
   const totalMes = sumar(datos);
