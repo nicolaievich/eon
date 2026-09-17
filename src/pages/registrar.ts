@@ -73,14 +73,45 @@ function actualizarVisualTimer() {
   segundos.textContent = timerCorriendo ? formatearSegundos(segundosTimer) : '';
 }
 
-// Actualiza el indicador de color que queda a la izquierda del selector.
+// Actualiza el indicador y el texto del selector visual de categoría.
+// El color se toma directamente del registro de categorías cargado desde Supabase.
 function actualizarColorCategoria() {
-  const select = document.getElementById('categoria') as HTMLSelectElement | null;
+  const categoria = document.getElementById('categoria') as HTMLInputElement | null;
   const indicador = document.getElementById('categoriaColor');
-  if (!select || !indicador) return;
+  const texto = document.getElementById('categoriaPickerText');
+  if (!categoria || !indicador || !texto) return;
 
-  const categoria = categorias.find(c => String(c.id) === select.value);
-  indicador.style.backgroundColor = categoria ? colorCategoria(categoria.color) : 'transparent';
+  const categoriaSeleccionada = categorias.find(c => String(c.id) === categoria.value);
+  indicador.style.backgroundColor = categoriaSeleccionada ? colorCategoria(categoriaSeleccionada.color) : 'transparent';
+  texto.textContent = categoriaSeleccionada ? categoriaSeleccionada.nombre : 'Seleccionar categoría';
+}
+
+// Cierra el menú visual de categorías.
+function cerrarSelectorCategoria() {
+  const menu = document.getElementById('categoriaPickerOptions');
+  const boton = document.getElementById('categoriaPickerButton');
+  if (menu) menu.hidden = true;
+  if (boton) boton.setAttribute('aria-expanded', 'false');
+}
+
+// Abre/cierra el menú visual de categorías.
+function alternarSelectorCategoria() {
+  const menu = document.getElementById('categoriaPickerOptions');
+  const boton = document.getElementById('categoriaPickerButton');
+  if (!menu || !boton) return;
+
+  menu.hidden = !menu.hidden;
+  boton.setAttribute('aria-expanded', String(!menu.hidden));
+}
+
+// Selecciona una categoría en el control visual y conserva su ID en el formulario.
+function seleccionarCategoria(id: string) {
+  const categoria = document.getElementById('categoria') as HTMLInputElement | null;
+  if (!categoria) return;
+
+  categoria.value = id;
+  actualizarColorCategoria();
+  cerrarSelectorCategoria();
 }
 
 // Deja el formulario listo para cargar el siguiente registro.
@@ -88,7 +119,7 @@ function actualizarColorCategoria() {
 function limpiarFormularioDespuesDeGuardar() {
   const fecha = document.getElementById('fecha') as HTMLInputElement | null;
   const proyecto = document.getElementById('proyecto') as HTMLSelectElement | null;
-  const categoria = document.getElementById('categoria') as HTMLSelectElement | null;
+  const categoria = document.getElementById('categoria') as HTMLInputElement | null;
   const cliente = document.getElementById('cliente') as HTMLSelectElement | null;
   const tiempo = document.getElementById('tiempo') as HTMLInputElement | null;
   const detalle = document.getElementById('detalle') as HTMLTextAreaElement | null;
@@ -147,14 +178,21 @@ export async function renderRegistrar(container: HTMLElement) {
 
         <label>
           Categoría *
-          <div style="display:flex;align-items:center;gap:0.5rem;">
-            <span id="categoriaColor" aria-hidden="true" style="display:inline-block;width:0.9rem;height:0.9rem;border-radius:50%;flex:0 0 0.9rem;border:1px solid var(--pico-muted-border-color);background:transparent;"></span>
-            <select id="categoria" required style="flex:1;">
-              <option value="">Seleccionar categoría</option>
+          <div id="categoriaPicker" style="position:relative;">
+            <input type="hidden" id="categoria" value="">
+            <button type="button" id="categoriaPickerButton" class="secondary" aria-haspopup="listbox" aria-expanded="false" style="width:100%;display:flex;align-items:center;gap:0.5rem;text-align:left;margin:0;">
+              <span id="categoriaColor" aria-hidden="true" style="display:inline-block;width:0.9rem;height:0.9rem;border-radius:50%;flex:0 0 0.9rem;border:1px solid var(--pico-muted-border-color);background:transparent;"></span>
+              <span id="categoriaPickerText" style="flex:1;">Seleccionar categoría</span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div id="categoriaPickerOptions" role="listbox" hidden style="position:absolute;z-index:20;left:0;right:0;top:calc(100% + 0.25rem);background:var(--pico-background-color);border:1px solid var(--pico-muted-border-color);border-radius:var(--pico-border-radius);padding:0.25rem;box-shadow:var(--pico-box-shadow);max-height:16rem;overflow:auto;">
               ${categorias.map(c => `
-                <option value="${c.id}" style="color:${colorCategoria(c.color)};">● ${escapeHtml(c.nombre)}</option>
+                <button type="button" class="categoriaOpcion" data-categoria-id="${c.id}" role="option" style="width:100%;display:flex;align-items:center;gap:0.5rem;margin:0;padding:0.55rem 0.65rem;border:0;background:transparent;text-align:left;">
+                  <span aria-hidden="true" style="display:inline-block;width:0.8rem;height:0.8rem;border-radius:50%;flex:0 0 0.8rem;background:${colorCategoria(c.color)};border:1px solid var(--pico-muted-border-color);"></span>
+                  <span>${escapeHtml(c.nombre)}</span>
+                </button>
               `).join('')}
-            </select>
+            </div>
           </div>
         </label>
 
@@ -202,7 +240,12 @@ export async function renderRegistrar(container: HTMLElement) {
   document.getElementById('registroForm')?.addEventListener('submit', handleGuardar);
   document.getElementById('timerBtn')?.addEventListener('click', handleTimer);
   document.getElementById('resetBtn')?.addEventListener('click', handleReset);
-  document.getElementById('categoria')?.addEventListener('change', actualizarColorCategoria);
+  document.getElementById('categoriaPickerButton')?.addEventListener('click', alternarSelectorCategoria);
+  document.querySelectorAll('.categoriaOpcion').forEach(opcion => {
+    opcion.addEventListener('click', () => {
+      seleccionarCategoria((opcion as HTMLElement).dataset.categoriaId ?? '');
+    });
+  });
   actualizarColorCategoria();
 }
 
@@ -273,7 +316,7 @@ async function handleGuardar(e: Event) {
 
   const fecha = (document.getElementById('fecha') as HTMLInputElement).value;
   const proyectoId = (document.getElementById('proyecto') as HTMLSelectElement).value;
-  const categoriaId = (document.getElementById('categoria') as HTMLSelectElement).value;
+  const categoriaId = (document.getElementById('categoria') as HTMLInputElement).value;
   const clienteId = (document.getElementById('cliente') as HTMLSelectElement).value;
   const tiempoStr = (document.getElementById('tiempo') as HTMLInputElement).value;
   const detalle = (document.getElementById('detalle') as HTMLTextAreaElement).value;
