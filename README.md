@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.5.2**
+**Versión funcional: 1.5.3**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -26,6 +26,7 @@ EÓN utiliza una numeración funcional simple:
 - `1.5` → nuevas funciones de exportación e importación CSV.
 - `1.5.1` → corrección de compilación de la versión 1.5.
 - `1.5.2` → mejoras del formulario de registro: limpieza automática después de guardar e identificación visual de categorías por color.
+- `1.5.3` → corrección del selector de categorías para mostrar correctamente los colores guardados en Supabase.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
@@ -48,7 +49,7 @@ Incluye un timer integrado. El timer mide segundos internamente para mostrar act
 
 Después de guardar correctamente un registro, el formulario queda preparado para cargar el siguiente: se limpia categoría, tiempo y detalle, mientras se conservan la fecha actual y los valores predeterminados de proyecto y cliente.
 
-Las categorías muestran además su color mediante un indicador visual junto al selector y un punto de color en sus opciones cuando el navegador lo permite.
+Las categorías utilizan el color que ya está almacenado en Supabase. En `Registrar`, un selector visual propio muestra cada categoría con su indicador de color y mantiene el identificador de la categoría para guardar el registro normalmente.
 
 ### Ver registros
 
