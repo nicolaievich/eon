@@ -1,8 +1,8 @@
 import { supabase } from './lib/supabase';
 
-// Corrección independiente del resumen de horas.
-// Se ejecuta cuando la vista "Ver registros" está presente y no depende
-// de las relaciones con categorías/proyectos/clientes.
+// Resumen de horas de EÓN.
+// La fuente de datos es la misma tabla "registros" que usa Ver registros.
+// Los tres totales se obtienen sumando tiempo_minutos, sin depender de relaciones.
 
 function fechaLocalISO(fecha = new Date()): string {
   const año = fecha.getFullYear();
@@ -33,84 +33,92 @@ function aplicarDiseñoResumen() {
       grid-column: 1 / -1 !important;
     }
     @media (max-width: 600px) {
-      #resumenHoras > div:first-child {
-        grid-template-columns: 1fr !important;
-      }
-      #resumenHoras > div:first-child > article {
-        grid-column: 1 / -1 !important;
-      }
+      #resumenHoras > div:first-child { grid-template-columns: 1fr !important; }
+      #resumenHoras > div:first-child > article { grid-column: 1 / -1 !important; }
     }
   `;
   document.head.appendChild(style);
 }
 
-async function actualizarResumen() {
-  const horasDia = document.getElementById('horasDia');
-  const horasSemana = document.getElementById('horasSemana');
-  const horasMes = document.getElementById('horasMes');
+let cargando = false;
+let ultimaVista: HTMLElement | null = null;
 
-  if (!horasDia || !horasSemana || !horasMes) return;
+async function actualizarResumen(resumen: HTMLElement) {
+  if (cargando) return;
+  cargando = true;
 
-  const { data: userData } = await supabase.auth.getUser();
-  const userId = userData.user?.id;
-  if (!userId) return;
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user?.id;
+    if (!userId) return;
 
-  const hoy = new Date();
-  const hoyISO = fechaLocalISO(hoy);
-  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const diaSemana = hoy.getDay();
-  const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
-  const inicioSemana = new Date(
-    hoy.getFullYear(),
-    hoy.getMonth(),
-    hoy.getDate() - diasDesdeLunes
-  );
+    const hoy = new Date();
+    const hoyISO = fechaLocalISO(hoy);
+    const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const diaSemana = hoy.getDay();
+    const diasDesdeLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+    const semanaInicio = new Date(
+      hoy.getFullYear(),
+      hoy.getMonth(),
+      hoy.getDate() - diasDesdeLunes
+    );
 
-  // Sin filtro de fecha: traemos los registros del usuario y calculamos
-  // los tres períodos localmente. Así evitamos cualquier problema con
-  // comparaciones de fechas o relaciones de Supabase.
-  const { data, error } = await supabase
-    .from('registros')
-    .select('fecha, tiempo_minutos')
-    .eq('user_id', userId);
+    // Una sola consulta. Después simplemente sumamos los minutos según cada período.
+    const { data, error } = await supabase
+      .from('registros')
+      .select('fecha, tiempo_minutos, categoria_id')
+      .eq('user_id', userId)
+      .lte('fecha', hoyISO)
+      .gte('fecha', fechaLocalISO(mesInicio));
 
-  if (error) {
-    console.error('EÓN: no se pudo cargar el resumen:', error);
-    return;
+    if (error) {
+      console.error('EÓN: error al obtener registros para el resumen:', error);
+      return;
+    }
+
+    const datos: any[] = data ?? [];
+    const semanaISO = fechaLocalISO(semanaInicio);
+    const mesISO = fechaLocalISO(mesInicio);
+
+    const sumar = (lista: any[]) => lista.reduce(
+      (total, registro) => total + Number(registro.tiempo_minutos || 0),
+      0
+    );
+
+    const totalHoy = sumar(datos.filter(r => r.fecha === hoyISO));
+    const totalSemana = sumar(datos.filter(r => r.fecha >= semanaISO));
+    const totalMes = sumar(datos.filter(r => r.fecha >= mesISO));
+
+    const horasDia = resumen.querySelector('#horasDia');
+    const horasSemana = resumen.querySelector('#horasSemana');
+    const horasMes = resumen.querySelector('#horasMes');
+
+    if (horasDia) horasDia.textContent = formatearTiempo(totalHoy);
+    if (horasSemana) horasSemana.textContent = formatearTiempo(totalSemana);
+    if (horasMes) horasMes.textContent = formatearTiempo(totalMes);
+  } finally {
+    cargando = false;
   }
-
-  const inicioSemanaISO = fechaLocalISO(inicioSemana);
-  const inicioMesISO = fechaLocalISO(inicioMes);
-  const registros = data ?? [];
-
-  const hoyTotal = registros
-    .filter((r: any) => r.fecha === hoyISO)
-    .reduce((total: number, r: any) => total + Number(r.tiempo_minutos || 0), 0);
-
-  const semanaTotal = registros
-    .filter((r: any) => r.fecha >= inicioSemanaISO && r.fecha <= hoyISO)
-    .reduce((total: number, r: any) => total + Number(r.tiempo_minutos || 0), 0);
-
-  const mesTotal = registros
-    .filter((r: any) => r.fecha >= inicioMesISO && r.fecha <= hoyISO)
-    .reduce((total: number, r: any) => total + Number(r.tiempo_minutos || 0), 0);
-
-  horasDia.textContent = formatearTiempo(hoyTotal);
-  horasSemana.textContent = formatearTiempo(semanaTotal);
-  horasMes.textContent = formatearTiempo(mesTotal);
 }
 
 function revisarVista() {
   const resumen = document.getElementById('resumenHoras');
-  if (!resumen) return;
+  if (!resumen) {
+    ultimaVista = null;
+    return;
+  }
+
   aplicarDiseñoResumen();
-  void actualizarResumen();
+
+  const elemento = resumen as HTMLElement;
+  if (ultimaVista !== elemento) {
+    ultimaVista = elemento;
+    void actualizarResumen(elemento);
+  }
 }
 
-// La aplicación es una SPA y crea/destruye la vista dinámicamente.
-// El observer detecta cuando aparece "Ver registros".
-const observer = new MutationObserver(() => revisarVista());
+// La vista es dinámica: se crea al entrar en "Ver registros".
+const observer = new MutationObserver(revisarVista);
 observer.observe(document.body, { childList: true, subtree: true });
 
 revisarVista();
-setInterval(revisarVista, 30000);
