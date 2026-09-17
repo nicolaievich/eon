@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@picocss/pico": "^2.1.1",
-    "@supabase/supabase-js": "^2.115.0",
-    "chart.js": "^4.5.0"
+    "@supabase/supabase-js": "^2.115.0"
   }
 }
