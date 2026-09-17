@@ -1,5 +1,4 @@
 import '@picocss/pico/css/pico.min.css';
-import './resumen-fix';
 import { renderRegistrar } from './pages/registrar';
 import { renderConfig } from './pages/config';
 import { renderRegistros } from './pages/registros';
