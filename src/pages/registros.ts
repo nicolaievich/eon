@@ -329,20 +329,25 @@ async function cargarResumen() {
   const semanaInicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - diasDesdeLunes);
   const desdeISO = fechaLocalISO(mesInicio < semanaInicio ? mesInicio : semanaInicio);
 
+  // Consulta simple: los totales no dependen de ninguna relación de categorías.
   const { data, error } = await supabase
     .from('registros')
-    .select('fecha, tiempo_minutos, categoria:categorias(nombre)')
+    .select('fecha, tiempo_minutos')
     .eq('user_id', userId)
     .gte('fecha', desdeISO)
     .lte('fecha', hoyISO);
 
   if (error) {
+    const ids = ['horasDia', 'horasSemana', 'horasMes'];
+    ids.forEach(id => {
+      const elemento = document.getElementById(id);
+      if (elemento) elemento.textContent = '—';
+    });
     const detalle = document.getElementById('detalleCategorias');
     if (detalle) detalle.innerHTML = `<small style="color: red;">❌ ${escapar(error.message)}</small>`;
     return;
   }
 
-  // Normalizamos la respuesta porque Supabase puede devolver la relación como objeto o arreglo.
   const datos: any[] = data ?? [];
   const inicioSemanaISO = fechaLocalISO(semanaInicio);
   const inicioMesISO = fechaLocalISO(mesInicio);
@@ -358,14 +363,27 @@ async function cargarResumen() {
   if (horasSemana) horasSemana.textContent = formatearTiempo(semanaTotal);
   if (horasMes) horasMes.textContent = formatearTiempo(mesTotal);
 
-  const porCategoria = new Map<string, number>();
-  datos.filter(r => r.fecha >= inicioMesISO).forEach(r => {
-    const nombre = obtenerNombreRelacion(r.categoria) || 'Sin categoría';
-    porCategoria.set(nombre, (porCategoria.get(nombre) || 0) + Number(r.tiempo_minutos || 0));
-  });
+  // El detalle por categoría se consulta por separado para que no pueda impedir los totales.
+  const { data: categoriasData, error: categoriasError } = await supabase
+    .from('registros')
+    .select('fecha, tiempo_minutos, categoria:categorias(nombre)')
+    .eq('user_id', userId)
+    .gte('fecha', inicioMesISO)
+    .lte('fecha', hoyISO);
 
   const detalle = document.getElementById('detalleCategorias');
   if (!detalle) return;
+
+  if (categoriasError) {
+    detalle.innerHTML = `<small style="color: red;">❌ ${escapar(categoriasError.message)}</small>`;
+    return;
+  }
+
+  const porCategoria = new Map<string, number>();
+  (categoriasData ?? []).forEach((r: any) => {
+    const nombre = obtenerNombreRelacion(r.categoria) || 'Sin categoría';
+    porCategoria.set(nombre, (porCategoria.get(nombre) || 0) + Number(r.tiempo_minutos || 0));
+  });
 
   if (!porCategoria.size) {
     detalle.innerHTML = '<small>No hay horas registradas este mes.</small>';
