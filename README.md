@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.4**
+**Versión funcional: 1.5.1**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -23,6 +23,8 @@ EÓN utiliza una numeración funcional simple:
 - `1.2` → siguiente nueva función.
 - `1.3` → siguiente nueva función.
 - `1.4` → siguiente nueva función.
+- `1.5` → nuevas funciones de exportación e importación CSV.
+- `1.5.1` → corrección de compilación de la versión 1.5.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones.**
 
@@ -53,8 +55,6 @@ Permite:
 - Ver cantidad de registros y total de tiempo.
 - Exportar a CSV.
 
-La exportación respeta el período, búsqueda y orden que se están viendo y utiliza `;` como separador para facilitar su apertura en Excel/Sheets en configuraciones regionales como Argentina.
-
 ### Editar registros
 
 Desde la pantalla de registros se puede editar un registro existente mediante un formulario simple.
@@ -81,6 +81,28 @@ La pantalla de registros muestra un resumen independiente de los filtros de la t
 
 El detalle por categoría se ordena de mayor a menor cantidad de minutos registrados.
 
+### Exportar / Importar CSV
+
+La versión 1.5 incorpora una sección específica para intercambio de datos mediante CSV.
+
+Permite exportar e importar:
+
+- Registros.
+- Categorías.
+- Proyectos.
+- Clientes.
+
+Características de la importación:
+
+- La importación agrega datos; no sobrescribe registros existentes.
+- Los catálogos duplicados por nombre se omiten sin distinguir mayúsculas y minúsculas.
+- Los registros importados no se consideran duplicados: cada fila válida se agrega.
+- Las líneas que comienzan con `#` son comentarios y no se importan.
+- Se pueden descargar modelos CSV de cada tipo con ejemplos comentados.
+- Los registros pueden exportarse por período y ordenarse antes de la exportación.
+
+La versión `1.5.1` corrige un error de compilación provocado por una declaración de TypeScript no utilizada en el módulo de exportación/importación.
+
 ---
 
 ## Arquitectura
@@ -94,6 +116,7 @@ src/
 └── pages/
     ├── registrar.ts
     ├── registros.ts
+    ├── exportar.ts
     └── config.ts
 ```
 
@@ -103,7 +126,8 @@ La aplicación está organizada por responsabilidades simples:
 - `auth.ts`: autenticación.
 - `lib/supabase.ts`: conexión con Supabase.
 - `registrar.ts`: carga y guardado de tiempos.
-- `registros.ts`: consulta, resumen, edición y exportación.
+- `registros.ts`: consulta, resumen y edición.
+- `exportar.ts`: exportación, importación y modelos CSV.
 - `config.ts`: proyectos, categorías, clientes y valores predeterminados.
 
 ---
@@ -185,6 +209,6 @@ La prioridad es:
 
 El ciclo funcional actual es:
 
-**Registrar → Ver → Exportar → Editar → Analizar.**
+**Registrar → Ver → Exportar → Importar → Editar → Analizar.**
 
 Las próximas funciones pueden enfocarse en análisis y visualización, siempre manteniendo la interfaz pequeña y orientada al trabajo cotidiano.
