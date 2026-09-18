@@ -30,12 +30,13 @@ import { renderRegistrar } from './pages/registrar';
 import { renderConfig } from './pages/config';
 import { renderRegistros } from './pages/registros';
 import { renderExportar } from './pages/exportar';
+import { renderGrafico } from './pages/grafico';
 import { iniciarSesion, registrarUsuario, cerrarSesion, obtenerSesion, enviarResetPassword, actualizarPassword } from './auth';
 import { supabase } from './lib/supabase';
 
 const app = document.getElementById('app');
 let usuarioActual: any = null;
-let vistaActual: 'registrar' | 'registros' | 'config' | 'exportar' = 'registrar';
+let vistaActual: 'registrar' | 'registros' | 'config' | 'exportar' | 'grafico' = 'registrar';
 
 // ------------------------------------------------------------
 // 01. PANTALLA DE LOGIN
@@ -109,13 +110,22 @@ function renderApp() {
       <li><a href="#" id="navExportar" role="button" class="${vistaActual==='exportar'?'':'secondary'}">⇅ Exportar / Importar</a></li>
     </ul></nav><div id="vistaContainer" style="margin-top:1rem;"></div></main>`;
   const container=document.getElementById('vistaContainer');
-  if(container){if(vistaActual==='registrar')renderRegistrar(container);else if(vistaActual==='registros')renderRegistros(container);else if(vistaActual==='config')renderConfig(container);else renderExportar(container);}
+  if(container){
+    if(vistaActual==='registrar') renderRegistrar(container);
+    else if(vistaActual==='registros') renderRegistros(container);
+    else if(vistaActual==='config') renderConfig(container);
+    else if(vistaActual==='exportar') renderExportar(container);
+    else renderGrafico(container, periodoGrafico);
+  }
   document.getElementById('logoutBtn')?.addEventListener('click',handleLogout);
   const navegar=(vista: typeof vistaActual)=>(e:Event)=>{e.preventDefault();vistaActual=vista;renderApp();};
   document.getElementById('navRegistrar')?.addEventListener('click',navegar('registrar'));
   document.getElementById('navRegistros')?.addEventListener('click',navegar('registros'));
   document.getElementById('navConfig')?.addEventListener('click',navegar('config'));
   document.getElementById('navExportar')?.addEventListener('click',navegar('exportar'));
+  if (vistaActual === 'grafico') {
+    document.getElementById('volverRegistros')?.addEventListener('click', () => { vistaActual = 'registros'; renderApp(); });
+  }
 }
 
 // ------------------------------------------------------------
@@ -132,6 +142,12 @@ async function handleLogout(){try{await cerrarSesion();usuarioActual=null;render
 // ------------------------------------------------------------
 // Es el punto que decide si mostramos login o la aplicación.
 async function verificarSesion(){if(modoRecuperacion)return;try{const session=await obtenerSesion();if(session?.session?.user){usuarioActual=session.session.user;renderApp();}else{usuarioActual=null;renderLogin();}}catch(error){console.error('Error al verificar sesión:',error);renderLogin();}}
+let periodoGrafico: 'hoy' | 'semana' | 'mes' = 'hoy';
+window.addEventListener('eon:ver-grafico', (e: Event) => {
+  periodoGrafico = (e as CustomEvent<'hoy' | 'semana' | 'mes'>).detail;
+  vistaActual = 'grafico';
+  renderApp();
+});
 let modoRecuperacion=false;
 supabase.auth.onAuthStateChange(event=>{if(event==='PASSWORD_RECOVERY'){modoRecuperacion=true;renderNuevaPassword();}});
 verificarSesion();
