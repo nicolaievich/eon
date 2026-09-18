@@ -1,3 +1,24 @@
+/**
+ * ============================================================
+ * EÓN — CONFIGURACIÓN (config.ts)
+ * ============================================================
+ *
+ * Administra proyectos, categorías, clientes y los valores
+ * predeterminados usados al registrar tiempo.
+ *
+ * ÍNDICE DE FUNCIONES
+ * ------------------------------------------------------------
+ * 01. renderConfig() → entrada principal de esta pantalla
+ * 02. cargarTodo() → carga los tres catálogos
+ * 03. cargarDefaults() → lee configuración del usuario
+ * 04. guardarDefaults() → guarda proyecto/cliente predeterminados
+ * 05. pintar() → construye la interfaz
+ * 06. handleDefaults() → procesa el formulario de defaults
+ * 07. handleAlta() → alta de proyecto/categoría/cliente
+ * 08. escapeHtml() → protección de HTML
+ * ============================================================
+ */
+
 import { supabase } from '../lib/supabase';
 
 // ========== TIPOS LOCALES ==========
@@ -26,12 +47,18 @@ let clientes: Cliente[] = [];
 let defaultProyectoId: number | null = null;
 let defaultClienteId: number | null = null;
 
+// ------------------------------------------------------------
+// 01. ENTRADA PRINCIPAL
+// ------------------------------------------------------------
 export async function renderConfig(container: HTMLElement) {
   await cargarTodo();
   await cargarDefaults();
   pintar(container);
 }
 
+// ------------------------------------------------------------
+// 02. CARGAR CATÁLOGOS
+// ------------------------------------------------------------
 async function cargarTodo() {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
@@ -49,6 +76,9 @@ async function cargarTodo() {
 }
 
 // ✅ NUEVO: Cargar valores por defecto desde Supabase
+// ------------------------------------------------------------
+// 03. LEER PREDETERMINADOS
+// ------------------------------------------------------------
 async function cargarDefaults() {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
@@ -71,6 +101,9 @@ async function cargarDefaults() {
 }
 
 // ✅ NUEVO: Guardar valores por defecto
+// ------------------------------------------------------------
+// 04. GUARDAR PREDETERMINADOS
+// ------------------------------------------------------------
 async function guardarDefaults(proyectoId: number | null, clienteId: number | null) {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
@@ -93,6 +126,9 @@ async function guardarDefaults(proyectoId: number | null, clienteId: number | nu
   }
 }
 
+// ------------------------------------------------------------
+// 05. CONSTRUIR INTERFAZ
+// ------------------------------------------------------------
 function pintar(container: HTMLElement) {
   container.innerHTML = `
     <article>
@@ -267,6 +303,12 @@ async function handleDefaults(e: Event) {
   }
 }
 
+// ------------------------------------------------------------
+// 07. ALTAS
+// ------------------------------------------------------------
+// 'tabla' determina qué formulario se procesó y qué campos se
+// envían a Supabase.
+// ------------------------------------------------------------
 async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' | 'categorias' | 'clientes') {
   e.preventDefault();
   const mensaje = document.getElementById('configMensaje');
