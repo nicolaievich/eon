@@ -107,18 +107,18 @@ export async function renderRegistros(container: HTMLElement) {
 
       <section id="resumenHorasTop" aria-label="Totales de horas" style="margin:1rem 0;">
         <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;">
-          <div style="grid-column:1 / -1;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;">
+          <button type="button" class="secondary outline resumenPeriodo" data-periodo="hoy" style="grid-column:1 / -1;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;text-align:left;">
             <strong>HOY</strong>
             <strong id="totalHorasHoy" style="font-size:1.35rem;">CARGANDO...</strong>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;">
+          </button>
+          <button type="button" class="secondary outline resumenPeriodo" data-periodo="semana" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;text-align:left;">
             <strong>ESTA SEMANA</strong>
             <strong id="totalHorasSemana" style="font-size:1.35rem;">CARGANDO...</strong>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;">
+          </button>
+          <button type="button" class="secondary outline resumenPeriodo" data-periodo="mes" style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;text-align:left;">
             <strong>ESTE MES</strong>
             <strong id="totalHorasMes" style="font-size:1.35rem;">CARGANDO...</strong>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -191,6 +191,13 @@ export async function renderRegistros(container: HTMLElement) {
       if (ordenCampo === campo) ordenAscendente = !ordenAscendente;
       else { ordenCampo = campo; ordenAscendente = true; }
       mostrarRegistros();
+    });
+  });
+
+  document.querySelectorAll('.resumenPeriodo').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      const periodo = (boton as HTMLElement).dataset.periodo as 'hoy' | 'semana' | 'mes';
+      window.dispatchEvent(new CustomEvent('eon:ver-grafico', { detail: periodo }));
     });
   });
 
