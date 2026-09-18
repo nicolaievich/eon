@@ -1,3 +1,29 @@
+/**
+ * ============================================================
+ * EÓN — REGISTRAR TIEMPO (registrar.ts)
+ * ============================================================
+ *
+ * Pantalla donde se carga un nuevo registro de tiempo.
+ * También contiene el temporizador integrado.
+ *
+ * ÍNDICE DE FUNCIONES
+ * ------------------------------------------------------------
+ * - renderRegistrar() → dibuja el formulario
+ * - cargarDatos() → carga proyectos, categorías y clientes
+ * - cargarDefaults() → obtiene los valores predeterminados
+ * - handleGuardar() → valida y guarda el registro
+ * - handleTimer() → inicia/detiene el temporizador
+ * - detenerTimer() → detiene el intervalo
+ * - handleReset() → reinicia el temporizador
+ * - escapeHtml() → protege mensajes HTML
+ *
+ * REGLA IMPORTANTE
+ * ------------------------------------------------------------
+ * El tiempo se almacena en Supabase como minutos (entero).
+ * La interfaz lo muestra como HH:MM.
+ * ============================================================
+ */
+
 import { supabase } from '../lib/supabase';
 
 // Estado para proyectos, categorías y clientes.
@@ -123,6 +149,9 @@ function limpiarFormularioDespuesDeGuardar() {
   actualizarColorCategoria();
 }
 
+// ------------------------------------------------------------
+// 01. CONSTRUCCIÓN DEL FORMULARIO
+// ------------------------------------------------------------
 export async function renderRegistrar(container: HTMLElement) {
   await cargarDatos();
   await cargarDefaults();
@@ -215,6 +244,9 @@ export async function renderRegistrar(container: HTMLElement) {
   actualizarColorCategoria();
 }
 
+// ------------------------------------------------------------
+// 02. CARGA DE CATÁLOGOS
+// ------------------------------------------------------------
 async function cargarDatos() {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
@@ -228,6 +260,9 @@ async function cargarDatos() {
   clientes = clientesData ?? [];
 }
 
+// ------------------------------------------------------------
+// 03. VALORES PREDETERMINADOS
+// ------------------------------------------------------------
 async function cargarDefaults() {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
@@ -247,6 +282,11 @@ async function cargarDefaults() {
   }
 }
 
+// ------------------------------------------------------------
+// 04. GUARDAR REGISTRO
+// ------------------------------------------------------------
+// El valor HH:MM se convierte a minutos antes de insertarlo.
+// ------------------------------------------------------------
 async function handleGuardar(e: Event) {
   e.preventDefault();
   const fecha = (document.getElementById('fecha') as HTMLInputElement).value;
@@ -270,6 +310,13 @@ async function handleGuardar(e: Event) {
   limpiarFormularioDespuesDeGuardar();
 }
 
+// ------------------------------------------------------------
+// 05. TEMPORIZADOR
+// ------------------------------------------------------------
+// El intervalo actualiza la interfaz cada 250 ms, pero el tiempo
+// real se calcula usando Date.now() para evitar depender de ticks
+// perfectos del navegador.
+// ------------------------------------------------------------
 function handleTimer() {
   const btn = document.getElementById('timerBtn') as HTMLButtonElement;
   const input = document.getElementById('tiempo') as HTMLInputElement;
