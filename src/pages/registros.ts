@@ -105,47 +105,27 @@ export async function renderRegistros(container: HTMLElement) {
     <article>
       <h2>📊 Resumen y registros</h2>
 
-      <!--
-        PRUEBA DE RENDERIZADO DEL RESUMEN:
-        Estos tres valores están deliberadamente FUERA del bloque
-        de gráficos/detalle. Usamos IDs nuevos para comprobar si
-        el problema estaba en la ubicación o en algún componente
-        que pudiera estar interfiriendo con el resumen anterior.
-      -->
       <section id="resumenHorasTop" aria-label="Totales de horas" style="margin:1rem 0;">
-        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;">
-          <div style="padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;text-align:center;">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;">
+          <div style="grid-column:1 / -1;display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;">
             <strong>HOY</strong>
-            <div id="totalHorasHoy" style="font-size:1.5rem;font-weight:bold;margin-top:.25rem;">CARGANDO...</div>
+            <strong id="totalHorasHoy" style="font-size:1.35rem;">CARGANDO...</strong>
           </div>
-          <div style="padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;text-align:center;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;">
             <strong>ESTA SEMANA</strong>
-            <div id="totalHorasSemana" style="font-size:1.5rem;font-weight:bold;margin-top:.25rem;">CARGANDO...</div>
+            <strong id="totalHorasSemana" style="font-size:1.35rem;">CARGANDO...</strong>
           </div>
-          <div style="padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;text-align:center;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.8rem 1rem;border:2px solid #999;border-radius:.5rem;">
             <strong>ESTE MES</strong>
-            <div id="totalHorasMes" style="font-size:1.5rem;font-weight:bold;margin-top:.25rem;">CARGANDO...</div>
+            <strong id="totalHorasMes" style="font-size:1.35rem;">CARGANDO...</strong>
           </div>
         </div>
       </section>
 
-      <section id="resumenHoras" aria-label="Resumen de horas">
-        <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0.75rem;">
-          <div style="grid-column:1 / -1; display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:0.75rem 1rem; border:1px solid var(--pico-muted-border-color, #ccc); border-radius:var(--pico-border-radius, 0.5rem);">
-            <strong>HOY</strong>
-            <strong id="horasDia">—</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:0.75rem 1rem; border:1px solid var(--pico-muted-border-color, #ccc); border-radius:var(--pico-border-radius, 0.5rem);">
-            <strong>ESTA SEMANA</strong>
-            <strong id="horasSemana">—</strong>
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:0.75rem 1rem; border:1px solid var(--pico-muted-border-color, #ccc); border-radius:var(--pico-border-radius, 0.5rem);">
-            <strong>ESTE MES</strong>
-            <strong id="horasMes">—</strong>
-          </div>
-        </div>
+      <hr>
 
-        <article style="margin-top:0.75rem;">
+      <section id="resumenHoras" aria-label="Resumen de horas">
+        <article style="margin-top:0;">
           <h4>Detalle del mes por categoría</h4>
           <div id="detalleCategorias"><small>Cargando...</small></div>
         </article>
@@ -345,22 +325,12 @@ async function cargarResumen() {
   const totalSemana = sumar(semanaResult.data);
   const totalMes = sumar(mesResult.data);
 
-  const horasDia = document.getElementById('horasDia');
-  const horasSemana = document.getElementById('horasSemana');
-  const horasMes = document.getElementById('horasMes');
-  // Los nuevos campos están arriba de todo y sirven además como
-  // prueba aislada de que el cálculo y el renderizado funcionan.
-  const totalHorasHoy = document.getElementById('totalHorasHoy');
+    const totalHorasHoy = document.getElementById('totalHorasHoy');
   const totalHorasSemana = document.getElementById('totalHorasSemana');
   const totalHorasMes = document.getElementById('totalHorasMes');
   if (totalHorasHoy) totalHorasHoy.textContent = formatearTiempo(totalHoy);
   if (totalHorasSemana) totalHorasSemana.textContent = formatearTiempo(totalSemana);
   if (totalHorasMes) totalHorasMes.textContent = formatearTiempo(totalMes);
-
-  // Conservamos también los campos del resumen existente.
-  if (horasDia) horasDia.textContent = formatearTiempo(totalHoy);
-  if (horasSemana) horasSemana.textContent = formatearTiempo(totalSemana);
-  if (horasMes) horasMes.textContent = formatearTiempo(totalMes);
 
   const detalle = document.getElementById('detalleCategorias');
   if (!detalle) return;
