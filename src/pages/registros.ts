@@ -210,6 +210,7 @@ async function cargarRegistros() {
 async function cargarResumen() {
   const userId = await obtenerUsuarioId();
   if (!userId) return;
+
   const hoy = new Date();
   const hoyISO = fechaLocalISO(hoy);
   const mesInicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
@@ -219,20 +220,46 @@ async function cargarResumen() {
   const semanaISO = fechaLocalISO(semanaInicio);
   const mesISO = fechaLocalISO(mesInicio);
 
-  const { data, error } = await supabase.from('registros').select('fecha, tiempo_minutos, categoria_id').eq('user_id', userId).gte('fecha', mesISO).lte('fecha', hoyISO);
+  // Tres consultas independientes: hoy, semana y mes.
+  // Así el resumen no depende de los filtros ni de los registros cargados en la tabla.
+  const [hoyResult, semanaResult, mesResult] = await Promise.all([
+    supabase
+      .from('registros')
+      .select('tiempo_minutos')
+      .eq('user_id', userId)
+      .eq('fecha', hoyISO),
+    supabase
+      .from('registros')
+      .select('tiempo_minutos')
+      .eq('user_id', userId)
+      .gte('fecha', semanaISO)
+      .lte('fecha', hoyISO),
+    supabase
+      .from('registros')
+      .select('tiempo_minutos, categoria_id')
+      .eq('user_id', userId)
+      .gte('fecha', mesISO)
+      .lte('fecha', hoyISO)
+  ]);
+
+  const error = hoyResult.error || semanaResult.error || mesResult.error;
   if (error) {
     console.error('EÓN: error al cargar resumen:', error);
-    ['horasDia', 'horasSemana', 'horasMes'].forEach(id => { const elemento = document.getElementById(id); if (elemento) elemento.textContent = '—'; });
+    ['horasDia', 'horasSemana', 'horasMes'].forEach(id => {
+      const elemento = document.getElementById(id);
+      if (elemento) elemento.textContent = '—';
+    });
     const detalle = document.getElementById('detalleCategorias');
     if (detalle) detalle.innerHTML = `<small style="color: red;">❌ ${escapar(error.message)}</small>`;
     return;
   }
 
-  const datos: any[] = data ?? [];
-  const sumar = (lista: any[]) => lista.reduce((total, registro) => total + Number(registro.tiempo_minutos || 0), 0);
-  const totalHoy = sumar(datos.filter(r => r.fecha === hoyISO));
-  const totalSemana = sumar(datos.filter(r => r.fecha >= semanaISO));
-  const totalMes = sumar(datos);
+  const sumar = (lista: any[] | null | undefined) =>
+    (lista ?? []).reduce((total, registro) => total + Number(registro.tiempo_minutos || 0), 0);
+
+  const totalHoy = sumar(hoyResult.data);
+  const totalSemana = sumar(semanaResult.data);
+  const totalMes = sumar(mesResult.data);
 
   const horasDia = document.getElementById('horasDia');
   const horasSemana = document.getElementById('horasSemana');
@@ -243,13 +270,19 @@ async function cargarResumen() {
 
   const detalle = document.getElementById('detalleCategorias');
   if (!detalle) return;
+
   const nombresCategorias = new Map(categorias.map(c => [String(c.id), String(c.nombre || '')]));
   const porCategoria = new Map<string, number>();
-  datos.forEach((registro: any) => {
+  (mesResult.data ?? []).forEach((registro: any) => {
     const nombre = nombresCategorias.get(String(registro.categoria_id)) || 'Sin categoría';
     porCategoria.set(nombre, (porCategoria.get(nombre) || 0) + Number(registro.tiempo_minutos || 0));
   });
-  if (!porCategoria.size) { detalle.innerHTML = '<small>No hay horas registradas este mes.</small>'; return; }
+
+  if (!porCategoria.size) {
+    detalle.innerHTML = '<small>No hay horas registradas este mes.</small>';
+    return;
+  }
+
   const filas = [...porCategoria.entries()].sort((a, b) => b[1] - a[1]);
   detalle.innerHTML = `<table><thead><tr><th>Categoría</th><th>Tiempo</th></tr></thead><tbody>${filas.map(([nombre, minutos]) => `<tr><td>${escapar(nombre)}</td><td>${formatearTiempo(minutos)}</td></tr>`).join('')}</tbody></table>`;
 }
