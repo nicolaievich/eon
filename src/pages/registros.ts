@@ -1,3 +1,40 @@
+/**
+ * ============================================================
+ * EÓN — REGISTROS (registros.ts)
+ * ============================================================
+ *
+ * Pantalla de consulta, resumen, edición y exportación de
+ * registros de tiempo.
+ *
+ * ÍNDICE DE FUNCIONES
+ * ------------------------------------------------------------
+ * 01. formatearTiempo()       → minutos a HH:MM
+ * 02. convertirAMinutos()     → HH:MM a minutos
+ * 03. formatearFecha()        → YYYY-MM-DD a DD-MM-YYYY
+ * 04. fechaLocalISO()         → fecha local segura
+ * 05. escapar()               → protección de HTML
+ * 06. obtenerNombreRelacion() → nombre de proyecto/categoría/cliente
+ * 07. renderRegistros()       → construye la pantalla
+ * 08. establecerPeriodoPorDefecto()
+ * 09. obtenerUsuarioId()
+ * 10. cargarCatalogos()
+ * 11. cargarRegistros()       → datos de la tabla
+ * 12. cargarResumen()         → HOY / SEMANA / MES
+ * 13. obtenerRegistrosVisibles()
+ * 14. mostrarRegistros()
+ * 15. valorOrden()
+ * 16. abrirEditor()
+ * 17. cerrarEditor()
+ * 18. guardarEdicion()
+ * 19. exportarCSV()
+ *
+ * IMPORTANTE
+ * ------------------------------------------------------------
+ * El resumen NO depende de los filtros de la tabla.
+ * cargarResumen() realiza sus propias consultas a Supabase.
+ * ============================================================
+ */
+
 import { supabase } from '../lib/supabase';
 
 // Registros actualmente cargados para el período seleccionado.
@@ -57,6 +94,12 @@ function obtenerNombreRelacion(relacion: any): string {
   return relacion?.nombre || '';
 }
 
+// ------------------------------------------------------------
+// 07. CONSTRUCCIÓN DE LA PANTALLA
+// ------------------------------------------------------------
+// Dibuja el HTML y conecta eventos. Al final carga catálogos,
+// registros y resumen en ese orden.
+// ------------------------------------------------------------
 export async function renderRegistros(container: HTMLElement) {
   container.innerHTML = `
     <article>
@@ -193,6 +236,12 @@ async function cargarCatalogos() {
   if (cliente) cliente.innerHTML = `<option value="">Sin cliente</option>${clientes.map(c => `<option value="${escapar(String(c.id))}">${escapar(c.nombre)}</option>`).join('')}`;
 }
 
+// ------------------------------------------------------------
+// 11. CARGAR REGISTROS DE LA TABLA
+// ------------------------------------------------------------
+// Respeta únicamente Desde/Hasta. El buscador y el ordenamiento
+// se aplican después, sobre los registros ya cargados.
+// ------------------------------------------------------------
 async function cargarRegistros() {
   const userId = await obtenerUsuarioId();
   const body = document.getElementById('registrosBody');
@@ -207,6 +256,17 @@ async function cargarRegistros() {
 }
 
 // Resumen independiente de los filtros de la tabla.
+// ------------------------------------------------------------
+// 12. RESUMEN DE HORAS
+// ------------------------------------------------------------
+// Calcula tres totales independientes:
+//   HOY         → fecha actual
+//   ESTA SEMANA → lunes hasta hoy
+//   ESTE MES    → día 1 hasta hoy
+//
+// ATENCIÓN: estas consultas NO dependen de los filtros de la tabla.
+// El objetivo es que el resumen siempre represente el período actual.
+// ------------------------------------------------------------
 async function cargarResumen() {
   const userId = await obtenerUsuarioId();
   if (!userId) return;
@@ -287,6 +347,12 @@ async function cargarResumen() {
   detalle.innerHTML = `<table><thead><tr><th>Categoría</th><th>Tiempo</th></tr></thead><tbody>${filas.map(([nombre, minutos]) => `<tr><td>${escapar(nombre)}</td><td>${formatearTiempo(minutos)}</td></tr>`).join('')}</tbody></table>`;
 }
 
+// ------------------------------------------------------------
+// 13. FILTRADO Y ORDENAMIENTO LOCAL
+// ------------------------------------------------------------
+// Trabaja sobre 'registros', que son los datos obtenidos de Supabase.
+// No vuelve a consultar la base por cada búsqueda o clic de columna.
+// ------------------------------------------------------------
 function obtenerRegistrosVisibles(): any[] {
   const termino = busqueda.trim().toLowerCase();
   const filtrados = registros.filter((r) => {
@@ -350,6 +416,12 @@ function cerrarEditor() {
   if (dialog?.open) dialog.close();
 }
 
+// ------------------------------------------------------------
+// 18. GUARDAR EDICIÓN
+// ------------------------------------------------------------
+// Actualiza un único registro y exige user_id para no modificar
+// registros pertenecientes a otro usuario.
+// ------------------------------------------------------------
 async function guardarEdicion(e: Event) {
   e.preventDefault();
   const id = (document.getElementById('editarId') as HTMLInputElement).value;
