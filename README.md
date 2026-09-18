@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.5.7**
+**Versión funcional: 1.5.8**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -28,8 +28,9 @@ EÓN utiliza una numeración funcional simple:
 - `1.5.2` → mejoras del formulario de registro: limpieza automática después de guardar e identificación visual de categorías por color.
 - `1.5.3` → corrección del selector de categorías para mostrar correctamente los colores guardados en Supabase.
 - `1.5.4` → corrección visual del selector de categorías: fondo blanco y texto negro en las opciones.
-- `1.5.5` → mejora visual del resumen: los totales de HOY, ESTA SEMANA y ESTE MES aparecen en el encabezado de cada tarjeta, alineados a la derecha.
-- `1.5.7` → corrección del cálculo del resumen de horas: los totales de HOY, ESTA SEMANA y ESTE MES se obtienen sumando los minutos de los registros del usuario, independientemente de los filtros de la tabla.
+- `1.5.5` → mejora visual del resumen.
+- `1.5.7` → corrección del cálculo del resumen de horas.
+- `1.5.8` → eliminación del módulo de resumen duplicado basado en MutationObserver/Chart.js y consolidación del resumen en `registros.ts`, con consultas independientes para HOY, ESTA SEMANA y ESTE MES.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
