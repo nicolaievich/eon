@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * EÓN — CONFIGURACIÓN (config.ts)
+ * EÓN — CONFIGURACIÓN (config.ts) — v1.6.0
  * ============================================================
  *
  * Administra proyectos, categorías, clientes y los valores
@@ -214,14 +214,15 @@ function pintar(container: HTMLElement) {
           <button type="submit">+ Agregar</button>
         </form>
         <table>
-          <thead><tr><th>Nombre</th><th>Color</th></tr></thead>
+          <thead><tr><th>Nombre</th><th>Color</th><th>Acciones</th></tr></thead>
           <tbody>
             ${categorias.map(c => `
               <tr>
                 <td>${escapeHtml(c.nombre)}</td>
                 <td><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c.color ?? '#ccc'};"></span></td>
+                <td><button type="button" class="secondary editarCategoria" data-id="${c.id}">✏️ Editar</button></td>
               </tr>
-            `).join('') || '<tr><td colspan="2"><em>Sin categorías todavía — necesitás al menos una para poder registrar tiempo</em></td></tr>'}
+            `).join('') || '<tr><td colspan="2"><em>Sin categorías todavía — necesitás al menos una para poder registrar tiempo</em></td><td></td></tr>'}
           </tbody>
         </table>
       </details>
@@ -261,6 +262,51 @@ function pintar(container: HTMLElement) {
   document.getElementById('formProyecto')?.addEventListener('submit', (e) => handleAlta(e, container, 'proyectos'));
   document.getElementById('formCategoria')?.addEventListener('submit', (e) => handleAlta(e, container, 'categorias'));
   document.getElementById('formCliente')?.addEventListener('submit', (e) => handleAlta(e, container, 'clientes'));
+
+  container.querySelectorAll('.editarCategoria').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const id = Number((e.currentTarget as HTMLElement).dataset.id);
+      const categoria = categorias.find(c => c.id === id);
+      if (!categoria) return;
+
+      const nombre = prompt('Nuevo nombre de la categoría:', categoria.nombre);
+      if (nombre === null) return;
+      const nombreLimpio = nombre.trim();
+      if (!nombreLimpio) {
+        alert('El nombre no puede quedar vacío.');
+        return;
+      }
+
+      const color = prompt('Color (hexadecimal):', categoria.color ?? '#3b82f6');
+      if (color === null) return;
+      const colorLimpio = color.trim() || '#3b82f6';
+
+      const user = await supabase.auth.getUser();
+      const userId = user.data.user?.id;
+      if (!userId) return;
+
+      const { error } = await supabase
+        .from('categorias')
+        .update({ nombre: nombreLimpio, color: colorLimpio })
+        .eq('id', id)
+        .eq('user_id', userId);
+
+      if (error) {
+        const mensaje = document.getElementById('configMensaje');
+        if (mensaje) mensaje.innerHTML = `<p style="color:red;">❌ Error: ${escapeHtml(error.message)}</p>`;
+        return;
+      }
+
+      // Los registros históricos conservan categoria_id. Al cambiar
+      // la categoría, sus relaciones muestran automáticamente el nuevo
+      // nombre/color, por lo que el cambio es retroactivo.
+      await cargarTodo();
+      await cargarDefaults();
+      pintar(container);
+      const mensaje = document.getElementById('configMensaje');
+      if (mensaje) mensaje.innerHTML = '<p style="color:green;">✅ Categoría actualizada. El cambio se aplica también a los registros históricos.</p>';
+    });
+  });
 
   container.querySelectorAll('.toggleProyecto').forEach(btn => {
     btn.addEventListener('click', async (e) => {
