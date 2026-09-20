@@ -47,7 +47,7 @@ function renderLogin() {
   if (!app) return;
   app.innerHTML = `
     <main class="container" style="max-width: 400px; margin-top: 3rem;">
-      <h1 style="text-align: center;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.6.0</small></h1><p style="text-align: center; color: var(--pico-muted-color);">Registro de tiempos</p>
+      <h1 style="text-align: center;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.7.0</small></h1><p style="text-align: center; color: var(--pico-muted-color);">Registro de tiempos</p>
       <article><h2>Iniciar sesión</h2>
         <form id="loginForm"><label>Email<input type="email" id="loginEmail" placeholder="tu@email.com" required></label>
         <label>Contraseña<input type="password" id="loginPassword" placeholder="••••••••" required></label>
@@ -88,7 +88,7 @@ function renderLogin() {
 // desde un enlace de recuperación.
 function renderNuevaPassword() {
   if (!app) return;
-  app.innerHTML = `<main class="container" style="max-width:400px;margin-top:3rem;"><h1 style="text-align:center;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.6.0</small></h1><article><h2>Elegí tu nueva contraseña</h2>
+  app.innerHTML = `<main class="container" style="max-width:400px;margin-top:3rem;"><h1 style="text-align:center;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.7.0</small></h1><article><h2>Elegí tu nueva contraseña</h2>
     <form id="nuevaPasswordForm"><label>Nueva contraseña<input type="password" id="nuevaPassword" minlength="6" required></label><label>Repetir contraseña<input type="password" id="nuevaPasswordConfirm" minlength="6" required></label>
     <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" id="mostrarNuevaPassword" style="margin:0;">Ver contraseña</label><button type="submit" style="width:100%;">Guardar nueva contraseña</button></form><div id="nuevaPasswordMensaje" style="margin-top:1rem;"></div></article></main>`;
   document.getElementById('mostrarNuevaPassword')?.addEventListener('change', e => { const m=(e.target as HTMLInputElement).checked; (document.getElementById('nuevaPassword') as HTMLInputElement).type=m?'text':'password'; (document.getElementById('nuevaPasswordConfirm') as HTMLInputElement).type=m?'text':'password'; });
@@ -102,7 +102,7 @@ function renderNuevaPassword() {
 // pantalla elegida dentro de #vistaContainer.
 function renderApp() {
   if (!app) return;
-  app.innerHTML = `<main class="container"><header style="display:flex;justify-content:space-between;align-items:center;padding:1rem 0;border-bottom:1px solid var(--pico-muted-border-color);"><h1 style="margin:0;display:flex;align-items:center;gap:.35rem;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.6.0</small></h1><div><span style="margin-right:1rem;">👤 ${usuarioActual?.email || 'Usuario'}</span><button id="logoutBtn" class="contrast">Cerrar sesión</button></div></header>
+  app.innerHTML = `<main class="container"><header style="display:flex;justify-content:space-between;align-items:center;padding:1rem 0;border-bottom:1px solid var(--pico-muted-border-color);"><h1 style="margin:0;display:flex;align-items:center;gap:.35rem;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.7.0</small></h1><div><span style="margin-right:1rem;">👤 ${usuarioActual?.email || 'Usuario'}</span><button id="logoutBtn" class="contrast">Cerrar sesión</button></div></header>
     <nav style="margin-top:1rem;"><ul>
       <li><a href="#" id="navRegistrar" role="button" class="${vistaActual==='registrar'?'':'secondary'}">📋 Registrar</a></li>
       <li><a href="#" id="navRegistros" role="button" class="${vistaActual==='registros'?'':'secondary'}">📊 Ver registros</a></li>
