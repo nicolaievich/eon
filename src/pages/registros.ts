@@ -89,6 +89,26 @@ function escapar(valor: string): string {
     .replace(/'/g, '&#039;');
 }
 
+function configurarBuscadorEditor(inputId: string, hiddenId: string, items: any[], valorInicial: number | null) {
+  const input = document.getElementById(inputId) as HTMLInputElement | null;
+  const hidden = document.getElementById(hiddenId) as HTMLInputElement | null;
+  if (!input || !hidden) return;
+  const inicial = items.find(item => item.id === valorInicial);
+  input.value = inicial?.nombre ?? '';
+  hidden.value = inicial ? String(inicial.id) : '';
+  input.addEventListener('input', () => {
+    const texto = input.value.trim().toLowerCase();
+    const exacto = items.find(item => String(item.nombre).trim().toLowerCase() === texto);
+    hidden.value = exacto ? String(exacto.id) : '';
+  });
+  input.addEventListener('change', () => {
+    const texto = input.value.trim().toLowerCase();
+    const exacto = items.find(item => String(item.nombre).trim().toLowerCase() === texto);
+    hidden.value = exacto ? String(exacto.id) : '';
+    if (texto && !exacto) input.value = '';
+  });
+}
+
 function obtenerNombreRelacion(relacion: any): string {
   if (Array.isArray(relacion)) return relacion[0]?.nombre || '';
   return relacion?.nombre || '';
@@ -166,9 +186,17 @@ export async function renderRegistros(container: HTMLElement) {
         <form id="editarForm">
           <input type="hidden" id="editarId">
           <label>Fecha *<input type="date" id="editarFecha" required></label>
-          <label>Proyecto<select id="editarProyecto"><option value="">Sin proyecto</option>${proyectos.map(p => `<option value="${escapar(String(p.id))}">${escapar(p.nombre)}</option>`).join('')}</select></label>
+          <label>Proyecto
+            <input type="hidden" id="editarProyecto" value="">
+            <input type="search" id="editarProyectoBuscar" list="editarProyectosOpciones" placeholder="Buscar proyecto..." autocomplete="off">
+            <datalist id="editarProyectosOpciones"><option value="Sin proyecto"></option>${proyectos.map(p => `<option value="${escapar(p.nombre)}"></option>`).join('')}</datalist>
+          </label>
           <label>Categoría *<select id="editarCategoria"><option value="">Seleccionar categoría</option>${categorias.map(c => `<option value="${escapar(String(c.id))}">${escapar(c.nombre)}</option>`).join('')}</select></label>
-          <label>Cliente<select id="editarCliente"><option value="">Sin cliente</option>${clientes.map(c => `<option value="${escapar(String(c.id))}">${escapar(c.nombre)}</option>`).join('')}</select></label>
+          <label>Cliente
+            <input type="hidden" id="editarCliente" value="">
+            <input type="search" id="editarClienteBuscar" list="editarClientesOpciones" placeholder="Buscar cliente..." autocomplete="off">
+            <datalist id="editarClientesOpciones"><option value="Sin cliente"></option>${clientes.map(c => `<option value="${escapar(c.nombre)}"></option>`).join('')}</datalist>
+          </label>
           <label>Tiempo * (HH:MM)<input type="text" id="editarTiempo" placeholder="01:30" required></label>
           <label>Detalle<textarea id="editarDetalle" rows="3"></textarea></label>
           <div style="display: flex; gap: 0.5rem;"><button type="submit">💾 Guardar cambios</button><button type="button" id="cancelarEditor" class="secondary">Cancelar</button></div>
@@ -239,12 +267,8 @@ async function cargarCatalogos() {
   proyectos = proyectosResult.data ?? [];
   categorias = categoriasResult.data ?? [];
   clientes = clientesResult.data ?? [];
-  const proyecto = document.getElementById('editarProyecto');
   const categoria = document.getElementById('editarCategoria');
-  const cliente = document.getElementById('editarCliente');
-  if (proyecto) proyecto.innerHTML = `<option value="">Sin proyecto</option>${proyectos.map(p => `<option value="${escapar(String(p.id))}">${escapar(p.nombre)}</option>`).join('')}`;
   if (categoria) categoria.innerHTML = `<option value="">Seleccionar categoría</option>${categorias.map(c => `<option value="${escapar(String(c.id))}">${escapar(c.nombre)}</option>`).join('')}`;
-  if (cliente) cliente.innerHTML = `<option value="">Sin cliente</option>${clientes.map(c => `<option value="${escapar(String(c.id))}">${escapar(c.nombre)}</option>`).join('')}`;
 }
 
 // ------------------------------------------------------------
@@ -412,9 +436,11 @@ function abrirEditor(id: string) {
   if (!registro || !dialog) return;
   (document.getElementById('editarId') as HTMLInputElement).value = String(registro.id);
   (document.getElementById('editarFecha') as HTMLInputElement).value = registro.fecha || '';
-  (document.getElementById('editarProyecto') as HTMLSelectElement).value = registro.proyecto_id ? String(registro.proyecto_id) : '';
+  (document.getElementById('editarProyecto') as HTMLInputElement).value = registro.proyecto_id ? String(registro.proyecto_id) : '';
+  (document.getElementById('editarCliente') as HTMLInputElement).value = registro.cliente_id ? String(registro.cliente_id) : '';
+  configurarBuscadorEditor('editarProyectoBuscar', 'editarProyecto', proyectos, registro.proyecto_id ?? null);
+  configurarBuscadorEditor('editarClienteBuscar', 'editarCliente', clientes, registro.cliente_id ?? null);
   (document.getElementById('editarCategoria') as HTMLSelectElement).value = registro.categoria_id ? String(registro.categoria_id) : '';
-  (document.getElementById('editarCliente') as HTMLSelectElement).value = registro.cliente_id ? String(registro.cliente_id) : '';
   (document.getElementById('editarTiempo') as HTMLInputElement).value = formatearTiempo(registro.tiempo_minutos);
   (document.getElementById('editarDetalle') as HTMLTextAreaElement).value = registro.detalle || '';
   const mensaje = document.getElementById('editarMensaje');
