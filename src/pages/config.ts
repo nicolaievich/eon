@@ -392,6 +392,35 @@ async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' |
   if (nuevoMensaje) nuevoMensaje.innerHTML = '<p style="color: green;">✅ Guardado</p>';
 }
 
+function configurarBuscadorConfig(
+  inputId: string,
+  hiddenId: string,
+  items: Array<{ id: number; nombre: string }>,
+  valorInicial: number | null
+) {
+  const input = document.getElementById(inputId) as HTMLInputElement | null;
+  const hidden = document.getElementById(hiddenId) as HTMLInputElement | null;
+  if (!input || !hidden) return;
+
+  const inicial = items.find(item => item.id === valorInicial);
+  input.value = inicial?.nombre ?? '';
+  hidden.value = inicial ? String(inicial.id) : '';
+
+  const sincronizar = () => {
+    const texto = input.value.trim().toLowerCase();
+    const exacto = items.find(
+      item => String(item.nombre).trim().toLowerCase() === texto
+    );
+    hidden.value = exacto ? String(exacto.id) : '';
+  };
+
+  input.addEventListener('input', sincronizar);
+  input.addEventListener('change', () => {
+    sincronizar();
+    if (input.value.trim() && !hidden.value) input.value = '';
+  });
+}
+
 function escapeHtml(str: string): string {
   const div = document.createElement('div');
   div.textContent = str;
