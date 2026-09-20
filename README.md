@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.5.8**
+**Versión funcional: 1.7.0 (rama beta)**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -31,6 +31,7 @@ EÓN utiliza una numeración funcional simple:
 - `1.5.5` → mejora visual del resumen.
 - `1.5.7` → corrección del cálculo del resumen de horas.
 - `1.5.8` → eliminación del módulo de resumen duplicado basado en MutationObserver/Chart.js y consolidación del resumen en `registros.ts`, con consultas independientes para HOY, ESTA SEMANA y ESTE MES.
+- `1.6.0` → edición de categorías con efecto retroactivo sobre todos los registros asociados a esa categoría.\n- `1.7.0` → buscadores dinámicos para proyectos y clientes en Registrar, Configuración y edición de registros.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
