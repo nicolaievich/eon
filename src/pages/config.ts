@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * EÓN — CONFIGURACIÓN (config.ts) — v1.6.0
+ * EÓN — CONFIGURACIÓN (config.ts) — v1.7.0
  * ============================================================
  *
  * Administra proyectos, categorías, clientes y los valores
