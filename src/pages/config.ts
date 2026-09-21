@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * EÓN — CONFIGURACIÓN (config.ts) — v1.6.0
+ * EÓN — CONFIGURACIÓN (config.ts) — v1.7.0
  * ============================================================
  *
  * Administra proyectos, categorías, clientes y los valores
@@ -140,25 +140,19 @@ function pintar(container: HTMLElement) {
         <form id="formDefaults" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
           <label style="flex:2; min-width:200px;">
             Proyecto predeterminado
-            <select id="defaultProyecto">
-              <option value="">Seleccionar proyecto por defecto</option>
-              ${proyectos.map(p => `
-                <option value="${p.id}" ${defaultProyectoId === p.id ? 'selected' : ''}>
-                  ${escapeHtml(p.nombre)}
-                </option>
-              `).join('')}
-            </select>
+            <input type="hidden" id="defaultProyecto" value="">
+            <input type="search" id="defaultProyectoBuscar" list="defaultProyectosOpciones" placeholder="Buscar proyecto..." autocomplete="off">
+            <datalist id="defaultProyectosOpciones">
+              ${proyectos.map(p => `<option value="${escapeHtml(p.nombre)}"></option>`).join('')}
+            </datalist>
           </label>
           <label style="flex:2; min-width:200px;">
             Cliente predeterminado
-            <select id="defaultCliente">
-              <option value="">Seleccionar cliente por defecto</option>
-              ${clientes.map(c => `
-                <option value="${c.id}" ${defaultClienteId === c.id ? 'selected' : ''}>
-                  ${escapeHtml(c.nombre)}
-                </option>
-              `).join('')}
-            </select>
+            <input type="hidden" id="defaultCliente" value="">
+            <input type="search" id="defaultClienteBuscar" list="defaultClientesOpciones" placeholder="Buscar cliente..." autocomplete="off">
+            <datalist id="defaultClientesOpciones">
+              ${clientes.map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
+            </datalist>
           </label>
           <button type="submit">💾 Guardar predeterminados</button>
         </form>
@@ -258,6 +252,8 @@ function pintar(container: HTMLElement) {
   `;
 
   // ✅ NUEVO: Event listener para defaults
+  configurarBuscadorConfig('defaultProyectoBuscar', 'defaultProyecto', proyectos, defaultProyectoId);
+  configurarBuscadorConfig('defaultClienteBuscar', 'defaultCliente', clientes, defaultClienteId);
   document.getElementById('formDefaults')?.addEventListener('submit', handleDefaults);
   document.getElementById('formProyecto')?.addEventListener('submit', (e) => handleAlta(e, container, 'proyectos'));
   document.getElementById('formCategoria')?.addEventListener('submit', (e) => handleAlta(e, container, 'categorias'));
@@ -394,6 +390,35 @@ async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' |
   pintar(container);
   const nuevoMensaje = document.getElementById('configMensaje');
   if (nuevoMensaje) nuevoMensaje.innerHTML = '<p style="color: green;">✅ Guardado</p>';
+}
+
+function configurarBuscadorConfig(
+  inputId: string,
+  hiddenId: string,
+  items: Array<{ id: number; nombre: string }>,
+  valorInicial: number | null
+) {
+  const input = document.getElementById(inputId) as HTMLInputElement | null;
+  const hidden = document.getElementById(hiddenId) as HTMLInputElement | null;
+  if (!input || !hidden) return;
+
+  const inicial = items.find(item => item.id === valorInicial);
+  input.value = inicial?.nombre ?? '';
+  hidden.value = inicial ? String(inicial.id) : '';
+
+  const sincronizar = () => {
+    const texto = input.value.trim().toLowerCase();
+    const exacto = items.find(
+      item => String(item.nombre).trim().toLowerCase() === texto
+    );
+    hidden.value = exacto ? String(exacto.id) : '';
+  };
+
+  input.addEventListener('input', sincronizar);
+  input.addEventListener('change', () => {
+    sincronizar();
+    if (input.value.trim() && !hidden.value) input.value = '';
+  });
 }
 
 function escapeHtml(str: string): string {
