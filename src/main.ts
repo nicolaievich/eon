@@ -102,7 +102,32 @@ function renderNuevaPassword() {
 // pantalla elegida dentro de #vistaContainer.
 function renderApp() {
   if (!app) return;
-  app.innerHTML = `<main class="container"><header style="display:flex;justify-content:space-between;align-items:center;padding:1rem 0;border-bottom:1px solid var(--pico-muted-border-color);"><h1 style="margin:0;display:flex;align-items:center;gap:.35rem;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.7.0</small></h1><div><span style="margin-right:1rem;">👤 ${usuarioActual?.email || 'Usuario'}</span><button id="logoutBtn" class="contrast">Cerrar sesión</button></div></header>
+  app.innerHTML = `
+    <style>
+      .eon-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--pico-muted-border-color);position:relative;}
+      .eon-logo{margin:0;display:flex;align-items:center;gap:.35rem;min-width:0;}
+      .eon-account{position:relative;margin:0;}
+      .eon-account summary{list-style:none;cursor:pointer;width:2.8rem;height:2.8rem;display:grid;place-items:center;border-radius:50%;font-size:1.55rem;padding:0;margin:0;}
+      .eon-account summary::-webkit-details-marker{display:none;}
+      .eon-account summary:hover{background:var(--pico-secondary-background);}
+      .eon-account-menu{position:absolute;right:0;top:calc(100% + .45rem);z-index:1000;min-width:250px;max-width:calc(100vw - 2rem);padding:.85rem;background:var(--pico-background-color);border:1px solid var(--pico-muted-border-color);border-radius:var(--pico-border-radius);box-shadow:var(--pico-box-shadow);}
+      .eon-account-email{display:block;margin-bottom:.7rem;overflow-wrap:anywhere;font-size:.95rem;}
+      .eon-account-menu button{width:100%;margin:0;}
+      .eon-nav{margin-top:1rem;overflow-x:auto;}
+      .eon-nav ul{flex-wrap:wrap;row-gap:.7rem;}
+      @media (max-width:480px){.eon-header{padding:.8rem 0;}.eon-logo small{font-size:.38em;}.eon-account-menu{right:-.25rem;min-width:220px;}}
+    </style>
+    <main class="container">
+      <header class="eon-header">
+        <h1 class="eon-logo"><img src="/favicon.svg?v=1.7.0" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.7.0</small></h1>
+        <details class="eon-account">
+          <summary aria-label="Abrir cuenta" title="Cuenta">👤</summary>
+          <div class="eon-account-menu">
+            <span class="eon-account-email">${usuarioActual?.email || 'Usuario'}</span>
+            <button id="logoutBtn" class="contrast">Cerrar sesión</button>
+          </div>
+        </details>
+      </header>
     <nav style="margin-top:1rem;"><ul>
       <li><a href="#" id="navRegistrar" role="button" class="${vistaActual==='registrar'?'':'secondary'}">📋 Registrar</a></li>
       <li><a href="#" id="navRegistros" role="button" class="${vistaActual==='registros'?'':'secondary'}">📊 Ver registros</a></li>
