@@ -81,6 +81,31 @@ function colorCategoria(color: unknown): string {
   return /^#[0-9a-fA-F]{3,8}$/.test(valor) ? valor : '#808080';
 }
 
+// Buscador dinámico reutilizable para proyectos/clientes.
+// Usa <input list> para mostrar opciones al hacer foco y acotarlas al escribir.
+function configurarBuscador(inputId: string, hiddenId: string, items: any[], valorInicial: number | null) {
+  const input = document.getElementById(inputId) as HTMLInputElement | null;
+  const hidden = document.getElementById(hiddenId) as HTMLInputElement | null;
+  if (!input || !hidden) return;
+
+  const inicial = items.find(item => item.id === valorInicial);
+  input.value = inicial?.nombre ?? '';
+  hidden.value = inicial ? String(inicial.id) : '';
+
+  input.addEventListener('input', () => {
+    const texto = input.value.trim().toLowerCase();
+    const exacto = items.find(item => String(item.nombre).trim().toLowerCase() === texto);
+    hidden.value = exacto ? String(exacto.id) : '';
+  });
+
+  input.addEventListener('change', () => {
+    const texto = input.value.trim().toLowerCase();
+    const exacto = items.find(item => String(item.nombre).trim().toLowerCase() === texto);
+    hidden.value = exacto ? String(exacto.id) : '';
+    if (texto && !exacto) input.value = '';
+  });
+}
+
 function actualizarVisualTimer() {
   const input = document.getElementById('tiempo') as HTMLInputElement | null;
   const segundos = document.getElementById('timerSegundos');
@@ -124,9 +149,9 @@ function seleccionarCategoria(id: string) {
 
 function limpiarFormularioDespuesDeGuardar() {
   const fecha = document.getElementById('fecha') as HTMLInputElement | null;
-  const proyecto = document.getElementById('proyecto') as HTMLSelectElement | null;
+  const proyecto = document.getElementById('proyecto') as HTMLInputElement | null;
   const categoria = document.getElementById('categoria') as HTMLInputElement | null;
-  const cliente = document.getElementById('cliente') as HTMLSelectElement | null;
+  const cliente = document.getElementById('cliente') as HTMLInputElement | null;
   const tiempo = document.getElementById('tiempo') as HTMLInputElement | null;
   const detalle = document.getElementById('detalle') as HTMLTextAreaElement | null;
   const segundos = document.getElementById('timerSegundos');
@@ -137,8 +162,12 @@ function limpiarFormularioDespuesDeGuardar() {
   segundosTimer = 0;
   if (fecha) fecha.value = fechaLocalISO();
   if (proyecto) proyecto.value = defaultProyectoId !== null ? String(defaultProyectoId) : '';
+  const proyectoBuscar = document.getElementById('proyectoBuscar') as HTMLInputElement | null;
+  if (proyectoBuscar) proyectoBuscar.value = proyectos.find(p => p.id === defaultProyectoId)?.nombre ?? '';
   if (categoria) categoria.value = '';
   if (cliente) cliente.value = defaultClienteId !== null ? String(defaultClienteId) : '';
+  const clienteBuscar = document.getElementById('clienteBuscar') as HTMLInputElement | null;
+  if (clienteBuscar) clienteBuscar.value = clientes.find(c => c.id === defaultClienteId)?.nombre ?? '';
   if (tiempo) tiempo.value = '00:00';
   if (detalle) detalle.value = '';
   if (segundos) segundos.textContent = '';
@@ -170,14 +199,12 @@ export async function renderRegistrar(container: HTMLElement) {
 
         <label>
           Proyecto
-          <select id="proyecto">
-            <option value="">Sin proyecto</option>
-            ${proyectos.map(p => `
-              <option value="${p.id}" ${defaultProyectoId === p.id ? 'selected' : ''}>
-                ${escapeHtml(p.nombre)}
-              </option>
-            `).join('')}
-          </select>
+          <input type="hidden" id="proyecto" value="">
+          <input type="search" id="proyectoBuscar" list="proyectosOpciones" placeholder="Buscar proyecto..." autocomplete="off">
+          <datalist id="proyectosOpciones">
+            <option value="Sin proyecto"></option>
+            ${proyectos.map(p => `<option value="${escapeHtml(p.nombre)}"></option>`).join('')}
+          </datalist>
         </label>
 
         <label>
@@ -202,14 +229,12 @@ export async function renderRegistrar(container: HTMLElement) {
 
         <label>
           Cliente
-          <select id="cliente">
-            <option value="">Sin cliente</option>
-            ${clientes.map(c => `
-              <option value="${c.id}" ${defaultClienteId === c.id ? 'selected' : ''}>
-                ${escapeHtml(c.nombre)}
-              </option>
-            `).join('')}
-          </select>
+          <input type="hidden" id="cliente" value="">
+          <input type="search" id="clienteBuscar" list="clientesOpciones" placeholder="Buscar cliente..." autocomplete="off">
+          <datalist id="clientesOpciones">
+            <option value="Sin cliente"></option>
+            ${clientes.map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
+          </datalist>
         </label>
 
         <label>
@@ -237,6 +262,8 @@ export async function renderRegistrar(container: HTMLElement) {
   document.getElementById('registroForm')?.addEventListener('submit', handleGuardar);
   document.getElementById('timerBtn')?.addEventListener('click', handleTimer);
   document.getElementById('resetBtn')?.addEventListener('click', handleReset);
+  configurarBuscador('proyectoBuscar', 'proyecto', proyectos, defaultProyectoId);
+  configurarBuscador('clienteBuscar', 'cliente', clientes, defaultClienteId);
   document.getElementById('categoriaPickerButton')?.addEventListener('click', alternarSelectorCategoria);
   document.querySelectorAll('.categoriaOpcion').forEach(opcion => {
     opcion.addEventListener('click', () => seleccionarCategoria((opcion as HTMLElement).dataset.categoriaId ?? ''));
@@ -290,9 +317,9 @@ async function cargarDefaults() {
 async function handleGuardar(e: Event) {
   e.preventDefault();
   const fecha = (document.getElementById('fecha') as HTMLInputElement).value;
-  const proyectoId = (document.getElementById('proyecto') as HTMLSelectElement).value;
+  const proyectoId = (document.getElementById('proyecto') as HTMLInputElement).value;
   const categoriaId = (document.getElementById('categoria') as HTMLInputElement).value;
-  const clienteId = (document.getElementById('cliente') as HTMLSelectElement).value;
+  const clienteId = (document.getElementById('cliente') as HTMLInputElement).value;
   const tiempoStr = (document.getElementById('tiempo') as HTMLInputElement).value;
   const detalle = (document.getElementById('detalle') as HTMLTextAreaElement).value;
   const mensaje = document.getElementById('mensaje');
