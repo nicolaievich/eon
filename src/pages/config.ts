@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * EÓN — CONFIGURACIÓN (config.ts) — v1.7.0
+ * EÓN — CONFIGURACIÓN (config.ts) — v1.7.1
  * ============================================================
  *
  * Administra proyectos, categorías, clientes y los valores
@@ -46,6 +46,10 @@ let clientes: Cliente[] = [];
 // ✅ NUEVO: Estado para valores por defecto
 let defaultProyectoId: number | null = null;
 let defaultClienteId: number | null = null;
+
+// Sección actualmente abierta dentro de Configuración.
+// 1.7.1 reorganiza la pantalla sin cambiar el funcionamiento de los catálogos.
+let seccionActual: 'inicio' | 'categorias' | 'clientes' | 'proyectos' = 'inicio';
 
 // ------------------------------------------------------------
 // 01. ENTRADA PRINCIPAL
@@ -130,51 +134,203 @@ async function guardarDefaults(proyectoId: number | null, clienteId: number | nu
 // 05. CONSTRUIR INTERFAZ
 // ------------------------------------------------------------
 function pintar(container: HTMLElement) {
-  container.innerHTML = `
-    <article>
-      <h2>⚙️ Configuración</h2>
+  // ----------------------------------------------------------
+  // 05. CONSTRUIR INTERFAZ
+  // ----------------------------------------------------------
+  // La pantalla principal funciona como menú de Configuración.
+  // Cada catálogo conserva su formulario, presentación y acciones
+  // existentes; solamente se muestran de forma independiente y
+  // ordenada para facilitar su administración.
+  // ----------------------------------------------------------
 
-      <!-- ✅ NUEVO: Valores por defecto -->
-      <details open>
-        <summary><strong>Valores por defecto</strong></summary>
-        <form id="formDefaults" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
-          <label style="flex:2; min-width:200px;">
-            Proyecto predeterminado
-            <input type="hidden" id="defaultProyecto" value="">
-            <input type="search" id="defaultProyectoBuscar" list="defaultProyectosOpciones" placeholder="Buscar proyecto..." autocomplete="off">
-            <datalist id="defaultProyectosOpciones">
-              ${proyectos.map(p => `<option value="${escapeHtml(p.nombre)}"></option>`).join('')}
-            </datalist>
-          </label>
-          <label style="flex:2; min-width:200px;">
-            Cliente predeterminado
-            <input type="hidden" id="defaultCliente" value="">
-            <input type="search" id="defaultClienteBuscar" list="defaultClientesOpciones" placeholder="Buscar cliente..." autocomplete="off">
-            <datalist id="defaultClientesOpciones">
-              ${clientes.map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
-            </datalist>
-          </label>
-          <button type="submit">💾 Guardar predeterminados</button>
-        </form>
-        <div id="defaultMensaje" style="margin-top: 0.5rem;"></div>
-        <p style="color: var(--pico-muted-color); font-size: 0.8rem; margin-top: 0.5rem;">
-          ℹ️ Estos valores se cargarán automáticamente al registrar tiempo.
+  const volver = `
+    <p style="margin-bottom: 1rem;">
+      <button type="button" class="secondary outline volverConfig">← Volver a Configuración</button>
+    </p>
+  `;
+
+  if (seccionActual === 'inicio') {
+    container.innerHTML = `
+      <article>
+        <h2>⚙️ Configuración</h2>
+        <p style="color: var(--pico-muted-color);">
+          En Configuración administrás los datos que EÓN utiliza para registrar y clasificar tu tiempo.
+          Elegí una sección para consultar, crear o modificar sus elementos.
         </p>
-      </details>
 
-      <details open>
-        <summary><strong>Proyectos</strong></summary>
-        <form id="formProyecto" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+        <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:1.25rem;">
+          <article style="margin:0;">
+            <h3>🏷️ Categorías</h3>
+            <p style="min-height:3.5rem;">Administrá las categorías con las que clasificás tu tiempo. Aquí también se encuentran las categorías por defecto de EÓN.</p>
+            <button type="button" data-seccion="categorias">Administrar categorías →</button>
+          </article>
+
+          <article style="margin:0;">
+            <h3>👤 Clientes</h3>
+            <p style="min-height:3.5rem;">Administrá los clientes que pueden asociarse a tus registros de tiempo y utilizalos para identificar para quién realizaste un trabajo.</p>
+            <button type="button" data-seccion="clientes">Administrar clientes →</button>
+          </article>
+
+          <article style="margin:0;">
+            <h3>📁 Proyectos</h3>
+            <p style="min-height:3.5rem;">Administrá los proyectos disponibles y definí cuáles están activos para utilizarlos al registrar tiempo.</p>
+            <button type="button" data-seccion="proyectos">Administrar proyectos →</button>
+          </article>
+        </section>
+
+        <hr>
+
+        <details open>
+          <summary><strong>Valores por defecto</strong></summary>
+          <p style="color: var(--pico-muted-color); font-size: 0.9rem;">
+            Definí qué proyecto y cliente se cargarán automáticamente al registrar un nuevo tiempo.
+            Son valores iniciales y pueden modificarse en cada registro.
+          </p>
+          <form id="formDefaults" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+            <label style="flex:2; min-width:200px;">
+              Proyecto predeterminado
+              <input type="hidden" id="defaultProyecto" value="">
+              <input type="search" id="defaultProyectoBuscar" list="defaultProyectosOpciones" placeholder="Buscar proyecto..." autocomplete="off">
+              <datalist id="defaultProyectosOpciones">
+                ${proyectos.map(p => `<option value="${escapeHtml(p.nombre)}"></option>`).join('')}
+              </datalist>
+            </label>
+            <label style="flex:2; min-width:200px;">
+              Cliente predeterminado
+              <input type="hidden" id="defaultCliente" value="">
+              <input type="search" id="defaultClienteBuscar" list="defaultClientesOpciones" placeholder="Buscar cliente..." autocomplete="off">
+              <datalist id="defaultClientesOpciones">
+                ${clientes.map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
+              </datalist>
+            </label>
+            <button type="submit">💾 Guardar predeterminados</button>
+          </form>
+          <div id="defaultMensaje" style="margin-top: 0.5rem;"></div>
+        </details>
+      </article>
+    `;
+
+    configurarBuscadorConfig('defaultProyectoBuscar', 'defaultProyecto', proyectos, defaultProyectoId);
+    configurarBuscadorConfig('defaultClienteBuscar', 'defaultCliente', clientes, defaultClienteId);
+    document.getElementById('formDefaults')?.addEventListener('submit', handleDefaults);
+
+    container.querySelectorAll('[data-seccion]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        seccionActual = (btn as HTMLElement).dataset.seccion as typeof seccionActual;
+        pintar(container);
+      });
+    });
+    return;
+  }
+
+  if (seccionActual === 'categorias') {
+    container.innerHTML = `
+      <article>
+        ${volver}
+        <h2>🏷️ Categorías</h2>
+        <p style="color: var(--pico-muted-color);">
+          Las categorías sirven para clasificar en qué tipo de actividad utilizaste tu tiempo.
+          Las categorías por defecto de EÓN también se administran desde esta sección.
+          Al editar una categoría, el cambio de nombre/color se refleja en los registros que la utilizan.
+        </p>
+
+        <form id="formCategoria" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
           <label style="flex:2; min-width:150px;">
             Nombre
-            <input type="text" id="proyectoNombre" required>
+            <input type="text" id="categoriaNombre" required>
           </label>
-          <label style="flex:2; min-width:150px;">
-            Descripción
-            <input type="text" id="proyectoDescripcion">
+          <label style="flex:1; min-width:100px;">
+            Color
+            <input type="color" id="categoriaColor" value="#3b82f6">
           </label>
           <button type="submit">+ Agregar</button>
         </form>
+
+        <div style="overflow-x:auto;margin-top:1rem;">
+          <table>
+            <thead><tr><th>Nombre</th><th>Color</th><th>Acciones</th></tr></thead>
+            <tbody>
+              ${categorias.map(c => `
+                <tr>
+                  <td>${escapeHtml(c.nombre)}</td>
+                  <td><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c.color ?? '#ccc'};"></span></td>
+                  <td><button type="button" class="secondary editarCategoria" data-id="${c.id}">✏️ Editar</button></td>
+                </tr>
+              `).join('') || '<tr><td colspan="3"><em>Sin categorías todavía — necesitás al menos una para poder registrar tiempo</em></td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div id="configMensaje" style="margin-top: 1rem;"></div>
+      </article>
+    `;
+    conectarEventosCategoria(container);
+    return;
+  }
+
+  if (seccionActual === 'clientes') {
+    container.innerHTML = `
+      <article>
+        ${volver}
+        <h2>👤 Clientes</h2>
+        <p style="color: var(--pico-muted-color);">
+          Aquí administrás los clientes asociados a tus registros. Un cliente permite identificar
+          para quién se realizó una tarea y facilita después la búsqueda y el análisis de tiempos.
+        </p>
+
+        <form id="formCliente" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+          <label style="flex:2; min-width:150px;">
+            Nombre
+            <input type="text" id="clienteNombre" required>
+          </label>
+          <label style="flex:2; min-width:150px;">
+            Contacto
+            <input type="text" id="clienteContacto">
+          </label>
+          <button type="submit">+ Agregar</button>
+        </form>
+
+        <div style="overflow-x:auto;margin-top:1rem;">
+          <table>
+            <thead><tr><th>Nombre</th><th>Contacto</th></tr></thead>
+            <tbody>
+              ${clientes.map(c => `
+                <tr>
+                  <td>${escapeHtml(c.nombre)}</td>
+                  <td>${escapeHtml(c.contacto ?? '')}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="2"><em>Sin clientes todavía</em></td></tr>'}
+            </tbody>
+          </table>
+        </div>
+        <div id="configMensaje" style="margin-top: 1rem;"></div>
+      </article>
+    `;
+    conectarEventosCatalogo(container, 'clientes');
+    return;
+  }
+
+  container.innerHTML = `
+    <article>
+      ${volver}
+      <h2>📁 Proyectos</h2>
+      <p style="color: var(--pico-muted-color);">
+        Aquí administrás los proyectos disponibles para registrar tiempo. Podés activar o desactivar
+        un proyecto sin eliminarlo, conservando así la información histórica de los registros.
+      </p>
+
+      <form id="formProyecto" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
+        <label style="flex:2; min-width:150px;">
+          Nombre
+          <input type="text" id="proyectoNombre" required>
+        </label>
+        <label style="flex:2; min-width:150px;">
+          Descripción
+          <input type="text" id="proyectoDescripcion">
+        </label>
+        <button type="submit">+ Agregar</button>
+      </form>
+
+      <div style="overflow-x:auto;margin-top:1rem;">
         <table>
           <thead><tr><th>Nombre</th><th>Descripción</th><th>Activo</th><th></th></tr></thead>
           <tbody>
@@ -192,72 +348,25 @@ function pintar(container: HTMLElement) {
             `).join('') || '<tr><td colspan="4"><em>Sin proyectos todavía</em></td></tr>'}
           </tbody>
         </table>
-      </details>
-
-      <details open>
-        <summary><strong>Categorías</strong></summary>
-        <form id="formCategoria" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
-          <label style="flex:2; min-width:150px;">
-            Nombre
-            <input type="text" id="categoriaNombre" required>
-          </label>
-          <label style="flex:1; min-width:100px;">
-            Color
-            <input type="color" id="categoriaColor" value="#3b82f6">
-          </label>
-          <button type="submit">+ Agregar</button>
-        </form>
-        <table>
-          <thead><tr><th>Nombre</th><th>Color</th><th>Acciones</th></tr></thead>
-          <tbody>
-            ${categorias.map(c => `
-              <tr>
-                <td>${escapeHtml(c.nombre)}</td>
-                <td><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c.color ?? '#ccc'};"></span></td>
-                <td><button type="button" class="secondary editarCategoria" data-id="${c.id}">✏️ Editar</button></td>
-              </tr>
-            `).join('') || '<tr><td colspan="2"><em>Sin categorías todavía — necesitás al menos una para poder registrar tiempo</em></td><td></td></tr>'}
-          </tbody>
-        </table>
-      </details>
-
-      <details open>
-        <summary><strong>Clientes</strong></summary>
-        <form id="formCliente" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
-          <label style="flex:2; min-width:150px;">
-            Nombre
-            <input type="text" id="clienteNombre" required>
-          </label>
-          <label style="flex:2; min-width:150px;">
-            Contacto
-            <input type="text" id="clienteContacto">
-          </label>
-          <button type="submit">+ Agregar</button>
-        </form>
-        <table>
-          <thead><tr><th>Nombre</th><th>Contacto</th></tr></thead>
-          <tbody>
-            ${clientes.map(c => `
-              <tr>
-                <td>${escapeHtml(c.nombre)}</td>
-                <td>${escapeHtml(c.contacto ?? '')}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="2"><em>Sin clientes todavía</em></td></tr>'}
-          </tbody>
-        </table>
-      </details>
-
+      </div>
       <div id="configMensaje" style="margin-top: 1rem;"></div>
     </article>
   `;
+  conectarEventosCatalogo(container, 'proyectos');
+}
 
-  // ✅ NUEVO: Event listener para defaults
-  configurarBuscadorConfig('defaultProyectoBuscar', 'defaultProyecto', proyectos, defaultProyectoId);
-  configurarBuscadorConfig('defaultClienteBuscar', 'defaultCliente', clientes, defaultClienteId);
-  document.getElementById('formDefaults')?.addEventListener('submit', handleDefaults);
-  document.getElementById('formProyecto')?.addEventListener('submit', (e) => handleAlta(e, container, 'proyectos'));
+function conectarVolver(container: HTMLElement) {
+  container.querySelectorAll('.volverConfig').forEach(btn => {
+    btn.addEventListener('click', () => {
+      seccionActual = 'inicio';
+      pintar(container);
+    });
+  });
+}
+
+function conectarEventosCategoria(container: HTMLElement) {
+  conectarVolver(container);
   document.getElementById('formCategoria')?.addEventListener('submit', (e) => handleAlta(e, container, 'categorias'));
-  document.getElementById('formCliente')?.addEventListener('submit', (e) => handleAlta(e, container, 'clientes'));
 
   container.querySelectorAll('.editarCategoria').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -293,9 +402,6 @@ function pintar(container: HTMLElement) {
         return;
       }
 
-      // Los registros históricos conservan categoria_id. Al cambiar
-      // la categoría, sus relaciones muestran automáticamente el nuevo
-      // nombre/color, por lo que el cambio es retroactivo.
       await cargarTodo();
       await cargarDefaults();
       pintar(container);
@@ -303,126 +409,30 @@ function pintar(container: HTMLElement) {
       if (mensaje) mensaje.innerHTML = '<p style="color:green;">✅ Categoría actualizada. El cambio se aplica también a los registros históricos.</p>';
     });
   });
-
-  container.querySelectorAll('.toggleProyecto').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const target = e.currentTarget as HTMLButtonElement;
-      const id = Number(target.dataset.id);
-      const activo = target.dataset.activo === 'true';
-      await supabase.from('proyectos').update({ activo: !activo }).eq('id', id);
-      await cargarTodo();
-      await cargarDefaults();
-      pintar(container);
-    });
-  });
 }
 
-// ✅ NUEVO: Manejador para guardar defaults
-async function handleDefaults(e: Event) {
-  e.preventDefault();
-  const mensaje = document.getElementById('defaultMensaje');
-  if (!mensaje) return;
-
-  const proyectoId = (document.getElementById('defaultProyecto') as HTMLSelectElement).value;
-  const clienteId = (document.getElementById('defaultCliente') as HTMLSelectElement).value;
-
-  try {
-    await guardarDefaults(
-      proyectoId ? parseInt(proyectoId) : null,
-      clienteId ? parseInt(clienteId) : null
-    );
-    mensaje.innerHTML = '<p style="color: green;">✅ Predeterminados guardados</p>';
-    
-    // Actualizar los valores en memoria
-    defaultProyectoId = proyectoId ? parseInt(proyectoId) : null;
-    defaultClienteId = clienteId ? parseInt(clienteId) : null;
-    
-    setTimeout(() => {
-      mensaje.innerHTML = '';
-    }, 3000);
-  } catch (error: any) {
-    mensaje.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
-  }
-}
-
-// ------------------------------------------------------------
-// 07. ALTAS
-// ------------------------------------------------------------
-// 'tabla' determina qué formulario se procesó y qué campos se
-// envían a Supabase.
-// ------------------------------------------------------------
-async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' | 'categorias' | 'clientes') {
-  e.preventDefault();
-  const mensaje = document.getElementById('configMensaje');
-  const user = await supabase.auth.getUser();
-  const userId = user.data.user?.id;
-
-  if (!userId || !mensaje) return;
-
-  let payload: Record<string, unknown> = { user_id: userId };
+function conectarEventosCatalogo(container: HTMLElement, tabla: 'proyectos' | 'clientes') {
+  conectarVolver(container);
+  document.getElementById(tabla === 'proyectos' ? 'formProyecto' : 'formCliente')
+    ?.addEventListener('submit', (e) => handleAlta(e, container, tabla));
 
   if (tabla === 'proyectos') {
-    const nombre = (document.getElementById('proyectoNombre') as HTMLInputElement).value.trim();
-    const descripcion = (document.getElementById('proyectoDescripcion') as HTMLInputElement).value.trim();
-    if (!nombre) return;
-    payload = { ...payload, nombre, descripcion: descripcion || null, activo: true };
-  } else if (tabla === 'categorias') {
-    const nombre = (document.getElementById('categoriaNombre') as HTMLInputElement).value.trim();
-    const color = (document.getElementById('categoriaColor') as HTMLInputElement).value;
-    if (!nombre) return;
-    payload = { ...payload, nombre, color };
-  } else {
-    const nombre = (document.getElementById('clienteNombre') as HTMLInputElement).value.trim();
-    const contacto = (document.getElementById('clienteContacto') as HTMLInputElement).value.trim();
-    if (!nombre) return;
-    payload = { ...payload, nombre, contacto: contacto || null };
+    container.querySelectorAll('.toggleProyecto').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const target = e.currentTarget as HTMLButtonElement;
+        const id = Number(target.dataset.id);
+        const activo = target.dataset.activo === 'true';
+        const { error } = await supabase.from('proyectos').update({ activo: !activo }).eq('id', id);
+        if (error) {
+          const mensaje = document.getElementById('configMensaje');
+          if (mensaje) mensaje.innerHTML = `<p style="color:red;">❌ Error: ${escapeHtml(error.message)}</p>`;
+          return;
+        }
+        await cargarTodo();
+        await cargarDefaults();
+        pintar(container);
+      });
+    });
   }
-
-  const { error } = await supabase.from(tabla).insert(payload);
-
-  if (error) {
-    mensaje.innerHTML = `<p style="color: red;">❌ Error: ${escapeHtml(error.message)}</p>`;
-    return;
-  }
-
-  await cargarTodo();
-  await cargarDefaults();
-  pintar(container);
-  const nuevoMensaje = document.getElementById('configMensaje');
-  if (nuevoMensaje) nuevoMensaje.innerHTML = '<p style="color: green;">✅ Guardado</p>';
 }
-
-function configurarBuscadorConfig(
-  inputId: string,
-  hiddenId: string,
-  items: Array<{ id: number; nombre: string }>,
-  valorInicial: number | null
-) {
-  const input = document.getElementById(inputId) as HTMLInputElement | null;
-  const hidden = document.getElementById(hiddenId) as HTMLInputElement | null;
-  if (!input || !hidden) return;
-
-  const inicial = items.find(item => item.id === valorInicial);
-  input.value = inicial?.nombre ?? '';
-  hidden.value = inicial ? String(inicial.id) : '';
-
-  const sincronizar = () => {
-    const texto = input.value.trim().toLowerCase();
-    const exacto = items.find(
-      item => String(item.nombre).trim().toLowerCase() === texto
-    );
-    hidden.value = exacto ? String(exacto.id) : '';
-  };
-
-  input.addEventListener('input', sincronizar);
-  input.addEventListener('change', () => {
-    sincronizar();
-    if (input.value.trim() && !hidden.value) input.value = '';
-  });
-}
-
-function escapeHtml(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }
