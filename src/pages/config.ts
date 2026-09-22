@@ -435,3 +435,113 @@ function conectarEventosCatalogo(container: HTMLElement, tabla: 'proyectos' | 'c
     });
   }
 }
+
+// ✅ NUEVO: Manejador para guardar defaults
+async function handleDefaults(e: Event) {
+  e.preventDefault();
+  const mensaje = document.getElementById('defaultMensaje');
+  if (!mensaje) return;
+
+  const proyectoId = (document.getElementById('defaultProyecto') as HTMLSelectElement).value;
+  const clienteId = (document.getElementById('defaultCliente') as HTMLSelectElement).value;
+
+  try {
+    await guardarDefaults(
+      proyectoId ? parseInt(proyectoId) : null,
+      clienteId ? parseInt(clienteId) : null
+    );
+    mensaje.innerHTML = '<p style="color: green;">✅ Predeterminados guardados</p>';
+    
+    // Actualizar los valores en memoria
+    defaultProyectoId = proyectoId ? parseInt(proyectoId) : null;
+    defaultClienteId = clienteId ? parseInt(clienteId) : null;
+    
+    setTimeout(() => {
+      mensaje.innerHTML = '';
+    }, 3000);
+  } catch (error: any) {
+    mensaje.innerHTML = `<p style="color: red;">❌ Error: ${error.message}</p>`;
+  }
+}
+
+// ------------------------------------------------------------
+// 07. ALTAS
+// ------------------------------------------------------------
+// 'tabla' determina qué formulario se procesó y qué campos se
+// envían a Supabase.
+// ------------------------------------------------------------
+async function handleAlta(e: Event, container: HTMLElement, tabla: 'proyectos' | 'categorias' | 'clientes') {
+  e.preventDefault();
+  const mensaje = document.getElementById('configMensaje');
+  const user = await supabase.auth.getUser();
+  const userId = user.data.user?.id;
+
+  if (!userId || !mensaje) return;
+
+  let payload: Record<string, unknown> = { user_id: userId };
+
+  if (tabla === 'proyectos') {
+    const nombre = (document.getElementById('proyectoNombre') as HTMLInputElement).value.trim();
+    const descripcion = (document.getElementById('proyectoDescripcion') as HTMLInputElement).value.trim();
+    if (!nombre) return;
+    payload = { ...payload, nombre, descripcion: descripcion || null, activo: true };
+  } else if (tabla === 'categorias') {
+    const nombre = (document.getElementById('categoriaNombre') as HTMLInputElement).value.trim();
+    const color = (document.getElementById('categoriaColor') as HTMLInputElement).value;
+    if (!nombre) return;
+    payload = { ...payload, nombre, color };
+  } else {
+    const nombre = (document.getElementById('clienteNombre') as HTMLInputElement).value.trim();
+    const contacto = (document.getElementById('clienteContacto') as HTMLInputElement).value.trim();
+    if (!nombre) return;
+    payload = { ...payload, nombre, contacto: contacto || null };
+  }
+
+  const { error } = await supabase.from(tabla).insert(payload);
+
+  if (error) {
+    mensaje.innerHTML = `<p style="color: red;">❌ Error: ${escapeHtml(error.message)}</p>`;
+    return;
+  }
+
+  await cargarTodo();
+  await cargarDefaults();
+  pintar(container);
+  const nuevoMensaje = document.getElementById('configMensaje');
+  if (nuevoMensaje) nuevoMensaje.innerHTML = '<p style="color: green;">✅ Guardado</p>';
+}
+
+function configurarBuscadorConfig(
+  inputId: string,
+  hiddenId: string,
+  items: Array<{ id: number; nombre: string }>,
+  valorInicial: number | null
+) {
+  const input = document.getElementById(inputId) as HTMLInputElement | null;
+  const hidden = document.getElementById(hiddenId) as HTMLInputElement | null;
+  if (!input || !hidden) return;
+
+  const inicial = items.find(item => item.id === valorInicial);
+  input.value = inicial?.nombre ?? '';
+  hidden.value = inicial ? String(inicial.id) : '';
+
+  const sincronizar = () => {
+    const texto = input.value.trim().toLowerCase();
+    const exacto = items.find(
+      item => String(item.nombre).trim().toLowerCase() === texto
+    );
+    hidden.value = exacto ? String(exacto.id) : '';
+  };
+
+  input.addEventListener('input', sincronizar);
+  input.addEventListener('change', () => {
+    sincronizar();
+    if (input.value.trim() && !hidden.value) input.value = '';
+  });
+}
+
+function escapeHtml(str: string): string {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
