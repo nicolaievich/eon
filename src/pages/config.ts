@@ -435,4 +435,3 @@ function conectarEventosCatalogo(container: HTMLElement, tabla: 'proyectos' | 'c
     });
   }
 }
-}
