@@ -41,13 +41,11 @@ let vistaActual: 'registrar' | 'registros' | 'config' | 'exportar' | 'grafico' =
 // ------------------------------------------------------------
 // 01. PANTALLA DE LOGIN
 // ------------------------------------------------------------
-// Construye el formulario de acceso y registro. Los eventos se
-// conectan aquí porque el DOM de esta pantalla se crea dinámicamente.
 function renderLogin() {
   if (!app) return;
   app.innerHTML = `
     <main class="container" style="max-width: 400px; margin-top: 3rem;">
-      <h1 style="text-align: center;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.0</small></h1><p style="text-align: center; color: var(--pico-muted-color);">Registro de tiempos</p>
+      <h1 style="text-align: center;"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.1</small></h1><p style="text-align: center; color: var(--pico-muted-color);">Registro de tiempos</p>
       <article><h2>Iniciar sesión</h2>
         <form id="loginForm"><label>Email<input type="email" id="loginEmail" placeholder="tu@email.com" required></label>
         <label>Contraseña<input type="password" id="loginPassword" placeholder="••••••••" required></label>
@@ -84,11 +82,9 @@ function renderLogin() {
 // ------------------------------------------------------------
 // 02. RECUPERACIÓN DE CONTRASEÑA
 // ------------------------------------------------------------
-// Esta vista aparece cuando Supabase informa que el usuario llegó
-// desde un enlace de recuperación.
 function renderNuevaPassword() {
   if (!app) return;
-  app.innerHTML = `<main class="container" style="max-width:400px;margin-top:3rem;"><h1 style="text-align:center;"><img src="/favicon.svg?v=1.6.0" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.0</small></h1><article><h2>Elegí tu nueva contraseña</h2>
+  app.innerHTML = `<main class="container" style="max-width:400px;margin-top:3rem;"><h1 style="text-align:center;"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.1</small></h1><article><h2>Elegí tu nueva contraseña</h2>
     <form id="nuevaPasswordForm"><label>Nueva contraseña<input type="password" id="nuevaPassword" minlength="6" required></label><label>Repetir contraseña<input type="password" id="nuevaPasswordConfirm" minlength="6" required></label>
     <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" id="mostrarNuevaPassword" style="margin:0;">Ver contraseña</label><button type="submit" style="width:100%;">Guardar nueva contraseña</button></form><div id="nuevaPasswordMensaje" style="margin-top:1rem;"></div></article></main>`;
   document.getElementById('mostrarNuevaPassword')?.addEventListener('change', e => { const m=(e.target as HTMLInputElement).checked; (document.getElementById('nuevaPassword') as HTMLInputElement).type=m?'text':'password'; (document.getElementById('nuevaPasswordConfirm') as HTMLInputElement).type=m?'text':'password'; });
@@ -98,12 +94,26 @@ function renderNuevaPassword() {
 // ------------------------------------------------------------
 // 03. APLICACIÓN PRINCIPAL Y NAVEGACIÓN
 // ------------------------------------------------------------
-// Esta función reconstruye la estructura común y luego carga la
-// pantalla elegida dentro de #vistaContainer.
 function renderApp() {
   if (!app) return;
   app.innerHTML = `
     <style>
+      /* ======================================================
+       * EÓN 1.8.1 — NAVEGACIÓN RESPONSIVE
+       * ======================================================
+       *
+       * En móviles, el enlace "⇅ Exportar / Importar" podía
+       * quedar parcialmente fuera del viewport porque PicoCSS
+       * intenta mantener la navegación en una sola línea.
+       *
+       * La solución es exclusivamente CSS:
+       * - la navegación permite wrapping;
+       * - cada enlace puede ocupar el ancho disponible;
+       * - debajo de 480px usamos una columna para garantizar que
+       *   ningún botón desborde horizontalmente.
+       *
+       * No se modifica la lógica ni el comportamiento SPA.
+       * ====================================================== */
       .eon-header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--pico-muted-border-color);position:relative;}
       .eon-logo{margin:0;display:flex;align-items:center;gap:.35rem;min-width:0;}
       .eon-account{position:relative;margin:0;}
@@ -112,14 +122,25 @@ function renderApp() {
       .eon-account summary:hover{background:var(--pico-secondary-background);}
       .eon-account-menu{position:absolute;right:0;top:calc(100% + .45rem);z-index:1000;min-width:250px;max-width:calc(100vw - 2rem);padding:.85rem;background:var(--pico-background-color);border:1px solid var(--pico-muted-border-color);border-radius:var(--pico-border-radius);box-shadow:var(--pico-box-shadow);}
       .eon-account-email{display:block;margin-bottom:.7rem;overflow-wrap:anywhere;font-size:.95rem;}
-      .eon-account-menu button{width:100%;margin:0;}
-      .eon-nav{margin-top:1rem;overflow-x:auto;}
-      .eon-nav ul{flex-wrap:wrap;row-gap:.7rem;}
-      @media (max-width:480px){.eon-header{padding:.8rem 0;}.eon-logo small{font-size:.38em;}.eon-account-menu{right:-.25rem;min-width:220px;}}
+
+      /* Navegación: nunca debe generar overflow horizontal. */
+      .eon-nav{margin-top:1rem;width:100%;overflow:visible;}
+      .eon-nav ul{display:flex;flex-wrap:wrap;gap:.7rem;row-gap:.7rem;width:100%;margin:0;padding:0;}
+      .eon-nav li{min-width:0;flex:1 1 auto;margin:0;}
+      .eon-nav a{display:flex;align-items:center;justify-content:center;box-sizing:border-box;max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:center;}
+
+      @media (max-width:480px){
+        .eon-header{padding:.8rem 0;}
+        .eon-logo small{font-size:.38em;}
+        .eon-account-menu{right:-.25rem;min-width:220px;}
+        /* En móvil, cada botón tiene una fila propia. */
+        .eon-nav ul{display:grid;grid-template-columns:minmax(0,1fr);gap:.55rem;}
+        .eon-nav li,.eon-nav a{width:100%;min-width:0;}
+      }
     </style>
     <main class="container">
       <header class="eon-header">
-        <h1 class="eon-logo"><img src="/favicon.svg?v=1.8.0" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.8.0</small></h1>
+        <h1 class="eon-logo"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.8.1</small></h1>
         <details class="eon-account">
           <summary aria-label="Abrir cuenta" title="Cuenta">👤</summary>
           <div class="eon-account-menu">
@@ -128,7 +149,7 @@ function renderApp() {
           </div>
         </details>
       </header>
-    <nav style="margin-top:1rem;"><ul>
+    <nav class="eon-nav"><ul>
       <li><a href="#" id="navRegistrar" role="button" class="${vistaActual==='registrar'?'':'secondary'}">📋 Registrar</a></li>
       <li><a href="#" id="navRegistros" role="button" class="${vistaActual==='registros'?'':'secondary'}">📊 Ver registros</a></li>
       <li><a href="#" id="navConfig" role="button" class="${vistaActual==='config'?'':'secondary'}">⚙️ Configuración</a></li>
@@ -157,15 +178,8 @@ function renderApp() {
 // 04. ACCESO
 // ------------------------------------------------------------
 async function handleLogin(e:Event){e.preventDefault();const email=(document.getElementById('loginEmail') as HTMLInputElement).value;const password=(document.getElementById('loginPassword') as HTMLInputElement).value;const message=document.getElementById('authMessage');if(!message)return;try{await iniciarSesion(email,password);message.innerHTML='<p style="color:green;">✅ Sesión iniciada</p>';verificarSesion();}catch(error:any){message.innerHTML=`<p style="color:red;">❌ ${error.message}</p>`;}}
-// ------------------------------------------------------------
-// 05. REGISTRO
-// ------------------------------------------------------------
 async function handleRegister(e:Event){e.preventDefault();const email=(document.getElementById('registerEmail') as HTMLInputElement).value;const password=(document.getElementById('registerPassword') as HTMLInputElement).value;const confirm=(document.getElementById('registerPasswordConfirm') as HTMLInputElement).value;const message=document.getElementById('authMessage');if(!message)return;if(password!==confirm){message.innerHTML='<p style="color:red;">❌ Las contraseñas no coinciden</p>';return;}try{await registrarUsuario(email,password);message.innerHTML='<p style="color:green;">✅ Registro exitoso. Ahora iniciá sesión.</p>';(document.getElementById('registerEmail') as HTMLInputElement).value='';(document.getElementById('registerPassword') as HTMLInputElement).value='';(document.getElementById('registerPasswordConfirm') as HTMLInputElement).value='';}catch(error:any){message.innerHTML=`<p style="color:red;">❌ ${error.message}</p>`;}}
 async function handleLogout(){try{await cerrarSesion();usuarioActual=null;renderLogin();}catch(error:any){alert('Error al cerrar sesión: '+error.message);}}
-// ------------------------------------------------------------
-// 07. VERIFICACIÓN DE SESIÓN
-// ------------------------------------------------------------
-// Es el punto que decide si mostramos login o la aplicación.
 async function verificarSesion(){if(modoRecuperacion)return;try{const session=await obtenerSesion();if(session?.session?.user){usuarioActual=session.session.user;renderApp();}else{usuarioActual=null;renderLogin();}}catch(error){console.error('Error al verificar sesión:',error);renderLogin();}}
 let periodoGrafico: 'hoy' | 'semana' | 'mes' = 'hoy';
 window.addEventListener('eon:ver-grafico', (e: Event) => {
