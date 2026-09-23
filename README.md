@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.7.2 (rama de desarrollo)**
+**Versión funcional: 1.7.3 (rama de desarrollo)**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -33,7 +33,7 @@ EÓN utiliza una numeración funcional simple:
 - `1.5.8` → eliminación del módulo de resumen duplicado basado en MutationObserver/Chart.js y consolidación del resumen en `registros.ts`, con consultas independientes para HOY, ESTA SEMANA y ESTE MES.
 - `1.6.0` → edición de categorías con efecto retroactivo sobre todos los registros asociados a esa categoría.\n- `1.7.0` → buscadores dinámicos para proyectos y clientes en Registrar, Configuración y edición de registros.
 - `1.7.1` → reorganización de Configuración como menú de administración: Categorías, Clientes y Proyectos pasan a pantallas independientes con explicación de uso y botón visible «← Volver a Configuración». Se conserva la lógica existente de búsqueda, presentación, alta, edición y activación/desactivación; las categorías por defecto se administran desde Categorías.
-- `1.7.2` → mejora del ingreso de tiempo: HH:MM se presenta como dos campos independientes con `:` fijo, validación de minutos 00–59 y selección independiente de horas/minutos; el temporizador utiliza la misma estructura. Los gráficos de categorías utilizan el color guardado en la configuración de cada categoría, sin paleta automática.
+- `1.7.2` → mejora del ingreso de tiempo: HH:MM se presenta como dos campos independientes con `:` fijo, validación de minutos 00–59 y selección independiente de horas/minutos; el temporizador utiliza la misma estructura. Los gráficos de categorías utilizan el color guardado en la configuración de cada categoría, sin paleta automática.\n- `1.7.3` → corrección responsive de la navegación principal en dispositivos móviles: los botones se distribuyen en filas y Exportar / Importar deja de quedar cortado por overflow horizontal.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
@@ -75,3 +75,21 @@ El campo visual `HH:MM` está compuesto por dos inputs reales: horas y minutos. 
 
 ### Documentación técnica
 La implementación está comentada directamente en `registrar.ts` y `grafico.ts`, explicando la separación de campos, la validación y el origen de los colores. El cambio se desarrolla en la rama `eon-1.7.2-tiempo-colores` para poder compilar y probar antes de integrarlo a `main`.
+
+
+## 1.7.3 — Navegación móvil responsive
+
+### Problema corregido
+En pantallas móviles, la navegación principal podía superar el ancho disponible y el cuarto botón, **Exportar / Importar**, quedaba parcialmente fuera de la pantalla.
+
+### Solución
+- Se identifica la navegación con la clase `eon-nav`.
+- En escritorio se mantiene una navegación flexible.
+- En pantallas de hasta 600 px se utiliza una cuadrícula de dos columnas.
+- Los tres primeros accesos conservan su tamaño adaptable.
+- **Exportar / Importar** ocupa toda la segunda fila.
+- Se elimina el desplazamiento horizontal de la navegación en móvil.
+- Los botones mantienen una altura mínima y texto centrado para facilitar el uso táctil.
+
+### Alcance
+Es una corrección exclusivamente visual/responsive. No modifica la base de datos, autenticación, registros, temporizador ni lógica de las pantallas.
