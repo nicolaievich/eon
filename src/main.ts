@@ -128,7 +128,7 @@ function renderApp() {
           </div>
         </details>
       </header>
-    <nav style="margin-top:1rem;"><ul>
+    <nav class="eon-nav"><ul>
       <li><a href="#" id="navRegistrar" role="button" class="${vistaActual==='registrar'?'':'secondary'}">📋 Registrar</a></li>
       <li><a href="#" id="navRegistros" role="button" class="${vistaActual==='registros'?'':'secondary'}">📊 Ver registros</a></li>
       <li><a href="#" id="navConfig" role="button" class="${vistaActual==='config'?'':'secondary'}">⚙️ Configuración</a></li>
