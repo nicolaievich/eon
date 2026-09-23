@@ -72,7 +72,7 @@ export async function renderGrafico(container: HTMLElement, periodo: Periodo) {
 
   const [registrosResult, categoriasResult] = await Promise.all([
     supabase.from('registros').select('tiempo_minutos, categoria_id').eq('user_id', userId).gte('fecha', rango.desde).lte('fecha', rango.hasta),
-    supabase.from('categorias').select('id, nombre').eq('user_id', userId).order('nombre')
+    supabase.from('categorias').select('id, nombre, color').eq('user_id', userId).order('nombre')
   ]);
 
   const error = registrosResult.error || categoriasResult.error;
@@ -81,15 +81,25 @@ export async function renderGrafico(container: HTMLElement, periodo: Periodo) {
     return;
   }
 
-  const nombres = new Map((categoriasResult.data ?? []).map((c: any) => [String(c.id), String(c.nombre || '')]));
+  const categoriasMap = new Map((categoriasResult.data ?? []).map((c: any) => [String(c.id), c]));
   const porCategoria = new Map<string, number>();
 
   (registrosResult.data ?? []).forEach((r: any) => {
-    const nombre = nombres.get(String(r.categoria_id)) || 'Sin categoría';
+    const categoria = categoriasMap.get(String(r.categoria_id));
+    const nombre = categoria?.nombre || 'Sin categoría';
     porCategoria.set(nombre, (porCategoria.get(nombre) || 0) + Number(r.tiempo_minutos || 0));
   });
 
   const filas = [...porCategoria.entries()].sort((a, b) => b[1] - a[1]);
+
+  // Cada categoría conserva su color configurado en Supabase.
+  // No usamos colores automáticos de Chart.js: así el mismo color
+  // representa siempre la misma categoría en EÓN.
+  const colores = filas.map(([nombre]) => {
+    const categoria = [...categoriasMap.values()].find((c: any) => String(c.nombre || '') === nombre);
+    const color = String(categoria?.color ?? '').trim();
+    return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : '#808080';
+  });
   const total = filas.reduce((suma, [, minutos]) => suma + minutos, 0);
 
   mensaje.innerHTML = total
@@ -113,7 +123,7 @@ export async function renderGrafico(container: HTMLElement, periodo: Periodo) {
     type: 'pie',
     data: {
       labels: filas.map(([nombre]) => nombre),
-      datasets: [{ data: filas.map(([, minutos]) => minutos) }]
+      datasets: [{ data: filas.map(([, minutos]) => minutos), backgroundColor: colores, borderColor: colores, borderWidth: 1 }]
     },
     options: {
       responsive: true,
