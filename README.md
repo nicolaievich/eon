@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.7.2 (rama de desarrollo)**
+**Versión funcional: 1.8.0 (rama main)**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -34,6 +34,7 @@ EÓN utiliza una numeración funcional simple:
 - `1.6.0` → edición de categorías con efecto retroactivo sobre todos los registros asociados a esa categoría.\n- `1.7.0` → buscadores dinámicos para proyectos y clientes en Registrar, Configuración y edición de registros.
 - `1.7.1` → reorganización de Configuración como menú de administración: Categorías, Clientes y Proyectos pasan a pantallas independientes con explicación de uso y botón visible «← Volver a Configuración». Se conserva la lógica existente de búsqueda, presentación, alta, edición y activación/desactivación; las categorías por defecto se administran desde Categorías.
 - `1.7.2` → mejora del ingreso de tiempo: HH:MM se presenta como dos campos independientes con `:` fijo, validación de minutos 00–59 y selección independiente de horas/minutos; el temporizador utiliza la misma estructura. Los gráficos de categorías utilizan el color guardado en la configuración de cada categoría, sin paleta automática.
+- `1.8.0` → mejora integral del formulario de Registrar: en pantallas móviles el bloque del temporizador se reorganiza para evitar desbordes y botones cortados; las categorías se ordenan por frecuencia de uso histórica, con empates alfabéticos; Proyecto y Cliente seleccionan automáticamente su texto al recibir el foco para facilitar el reemplazo inmediato.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
@@ -75,3 +76,20 @@ El campo visual `HH:MM` está compuesto por dos inputs reales: horas y minutos. 
 
 ### Documentación técnica
 La implementación está comentada directamente en `registrar.ts` y `grafico.ts`, explicando la separación de campos, la validación y el origen de los colores. El cambio se desarrolla en la rama `eon-1.7.2-tiempo-colores` para poder compilar y probar antes de integrarlo a `main`.
+
+
+## 1.8.0 — Registrar más rápido y adaptable a móvil
+
+### Corrección móvil
+El bloque HH:MM y los controles del temporizador ahora utilizan un diseño responsive. En pantallas angostas los controles pueden reorganizarse en varias líneas, evitando que los botones queden parcialmente fuera de la pantalla.
+
+### Categorías por frecuencia
+El selector de categorías de Registrar consulta la cantidad de registros históricos de cada categoría para el usuario actual y muestra primero las más utilizadas. Los empates se ordenan alfabéticamente y las categorías sin registros quedan al final. Este orden es solo visual: no modifica la tabla de categorías.
+
+### Proyecto y Cliente: selección rápida
+Al tocar o enfocar los campos de Proyecto o Cliente, el texto existente queda seleccionado. Así, un valor predeterminado se puede reemplazar inmediatamente escribiendo.
+
+La implementación conserva los buscadores nativos mediante datalist. La apertura automática del menú de sugerencias puede variar entre navegadores móviles, pero la selección automática del texto queda implementada por EÓN.
+
+### Documentación técnica
+La implementación está comentada directamente en registrar.ts, incluyendo el motivo del orden por frecuencia, el cálculo en memoria y la estrategia responsive del temporizador.
