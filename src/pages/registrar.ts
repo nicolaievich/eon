@@ -55,25 +55,11 @@ function fechaLocalISO(): string {
   return `${año}-${mes}-${dia}`;
 }
 
-function formatearTiempo(minutos: number): string {
-  const total = Math.max(0, Math.floor(Number(minutos) || 0));
-  const horas = Math.floor(total / 60);
-  const mins = total % 60;
-  return `${String(horas).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-}
 
 function formatearSegundos(segundos: number): string {
   return `:${String(Math.max(0, segundos % 60)).padStart(2, '0')}`;
 }
 
-function convertirAMinutos(valor: string): number | null {
-  const match = valor.trim().match(/^(\d+):(\d{2})$/);
-  if (!match) return null;
-  const horas = Number(match[1]);
-  const minutos = Number(match[2]);
-  if (!Number.isInteger(horas) || !Number.isInteger(minutos) || minutos > 59) return null;
-  return horas * 60 + minutos;
-}
 
 // Los colores vienen de configuración y se leen directamente desde Supabase.
 function colorCategoria(color: unknown): string {
