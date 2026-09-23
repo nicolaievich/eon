@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.7.1 (rama beta)**
+**Versión funcional: 1.7.2 (rama de desarrollo)**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -33,6 +33,7 @@ EÓN utiliza una numeración funcional simple:
 - `1.5.8` → eliminación del módulo de resumen duplicado basado en MutationObserver/Chart.js y consolidación del resumen en `registros.ts`, con consultas independientes para HOY, ESTA SEMANA y ESTE MES.
 - `1.6.0` → edición de categorías con efecto retroactivo sobre todos los registros asociados a esa categoría.\n- `1.7.0` → buscadores dinámicos para proyectos y clientes en Registrar, Configuración y edición de registros.
 - `1.7.1` → reorganización de Configuración como menú de administración: Categorías, Clientes y Proyectos pasan a pantallas independientes con explicación de uso y botón visible «← Volver a Configuración». Se conserva la lógica existente de búsqueda, presentación, alta, edición y activación/desactivación; las categorías por defecto se administran desde Categorías.
+- `1.7.2` → mejora del ingreso de tiempo: HH:MM se presenta como dos campos independientes con `:` fijo, validación de minutos 00–59 y selección independiente de horas/minutos; el temporizador utiliza la misma estructura. Los gráficos de categorías utilizan el color guardado en la configuración de cada categoría, sin paleta automática.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
@@ -53,3 +54,24 @@ La versión 1.7.1 reorganiza la experiencia de Configuración sin modificar el m
 Cada pantalla de catálogo incluye una explicación breve de para qué sirve y un botón visible **← Volver a Configuración**.
 
 **Criterio de versionado:** 1.7.1 se considera una mejora menor de la funcionalidad introducida en 1.7.0: no agrega un módulo de datos nuevo, sino que reorganiza y documenta visualmente la configuración existente.
+
+
+## 1.7.2 — Colores de categorías y campo de tiempo robusto
+
+### Gráficos
+Los gráficos por categoría consultan ahora también el campo `color` de la tabla `categorias` y lo asignan directamente a cada segmento del gráfico. De esta manera, el color configurado para una categoría se mantiene estable en los gráficos de HOY, ESTA SEMANA y ESTE MES.
+
+Si una categoría no tiene un color hexadecimal válido, EÓN utiliza gris como respaldo para evitar que el gráfico falle.
+
+### Ingreso de tiempo
+El campo visual `HH:MM` está compuesto por dos inputs reales: horas y minutos. El separador `:` es un elemento fijo de la interfaz y no puede borrarse.
+
+- Horas: dos dígitos, hasta 99.
+- Minutos: dos dígitos, de 00 a 59.
+- Doble clic/toque sobre horas: selecciona solamente las horas.
+- Doble clic/toque sobre minutos: selecciona solamente los minutos.
+- El temporizador actualiza los mismos campos.
+- La base de datos continúa almacenando el tiempo como minutos enteros, por lo que no cambia el modelo de datos ni los registros históricos.
+
+### Documentación técnica
+La implementación está comentada directamente en `registrar.ts` y `grafico.ts`, explicando la separación de campos, la validación y el origen de los colores. El cambio se desarrolla en la rama `eon-1.7.2-tiempo-colores` para poder compilar y probar antes de integrarlo a `main`.
