@@ -26,21 +26,13 @@
 
 import { supabase } from '../lib/supabase';
 
-// Estado para proyectos, categorías y clientes.
 let proyectos: any[] = [];
 let categorias: any[] = [];
 let clientes: any[] = [];
-
-// Valores predeterminados configurados por el usuario.
 let defaultProyectoId: number | null = null;
 let defaultClienteId: number | null = null;
-
-// Valores de respaldo para instalaciones sin configuración guardada.
 const DEFAULT_PROYECTO = 'Hermanos Calmels';
 const DEFAULT_CLIENTE = 'Hermanos Calmels';
-
-// EÓN trabaja con precisión de minuto para guardar y analizar.
-// El timer mide segundos internamente para mostrar el avance en vivo.
 let minutosTranscurridos = 0;
 let segundosTimer = 0;
 let timerInterval: number | null = null;
@@ -55,20 +47,28 @@ function fechaLocalISO(): string {
   return `${año}-${mes}-${dia}`;
 }
 
-
 function formatearSegundos(segundos: number): string {
   return `:${String(Math.max(0, segundos % 60)).padStart(2, '0')}`;
 }
 
-
-// Los colores vienen de configuración y se leen directamente desde Supabase.
 function colorCategoria(color: unknown): string {
   const valor = String(color ?? '').trim();
   return /^#[0-9a-fA-F]{3,8}$/.test(valor) ? valor : '#808080';
 }
 
-// Buscador dinámico reutilizable para proyectos/clientes.
-// Usa <input list> para mostrar opciones al hacer foco y acotarlas al escribir.
+/**
+ * Buscador reutilizable para proyectos y clientes.
+ *
+ * En 1.8, al recibir el foco seleccionamos todo el contenido actual.
+ * Esto permite tocar/posicionarse sobre el campo y comenzar a escribir
+ * inmediatamente para reemplazar el valor anterior, sin tener que
+ * borrar manualmente el texto predeterminado.
+ *
+ * Seguimos usando <datalist> para conservar el buscador nativo y liviano.
+ * La apertura visual automática de un datalist depende del navegador,
+ * especialmente en móviles; la selección automática del texto, en cambio,
+ * sí queda bajo control de EÓN.
+ */
 function configurarBuscador(inputId: string, hiddenId: string, items: any[], valorInicial: number | null) {
   const input = document.getElementById(inputId) as HTMLInputElement | null;
   const hidden = document.getElementById(hiddenId) as HTMLInputElement | null;
@@ -77,6 +77,15 @@ function configurarBuscador(inputId: string, hiddenId: string, items: any[], val
   const inicial = items.find(item => item.id === valorInicial);
   input.value = inicial?.nombre ?? '';
   hidden.value = inicial ? String(inicial.id) : '';
+
+  // Al enfocar, todo el texto queda seleccionado para poder reemplazarlo
+  // con una sola acción de teclado/tacto.
+  input.addEventListener('focus', () => {
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
+    });
+  });
 
   input.addEventListener('input', () => {
     const texto = input.value.trim().toLowerCase();
@@ -99,8 +108,6 @@ function actualizarVisualTimer() {
   segundos.textContent = timerCorriendo ? formatearSegundos(segundosTimer) : '';
 }
 
-// El campo visible HH:MM está compuesto por dos inputs reales.
-// El separador ":" es un elemento fijo y, por lo tanto, nunca puede borrarse.
 function leerTiempoDesdeCampos(): number | null {
   const horas = document.getElementById('tiempoHoras') as HTMLInputElement | null;
   const minutos = document.getElementById('tiempoMinutos') as HTMLInputElement | null;
@@ -124,13 +131,10 @@ function configurarCampoTiempo() {
   const horas = document.getElementById('tiempoHoras') as HTMLInputElement | null;
   const minutos = document.getElementById('tiempoMinutos') as HTMLInputElement | null;
   if (!horas || !minutos) return;
-
   [horas, minutos].forEach((input) => {
     input.addEventListener('input', () => {
       input.value = input.value.replace(/\\D/g, '').slice(0, 2);
-      if (input === minutos && input.value !== '') {
-        input.value = String(Math.min(Number(input.value), 59));
-      }
+      if (input === minutos && input.value !== '') input.value = String(Math.min(Number(input.value), 59));
     });
     input.addEventListener('dblclick', () => input.select());
     input.addEventListener('blur', () => {
@@ -184,7 +188,6 @@ function limpiarFormularioDespuesDeGuardar() {
   const detalle = document.getElementById('detalle') as HTMLTextAreaElement | null;
   const segundos = document.getElementById('timerSegundos');
   const timerBtn = document.getElementById('timerBtn') as HTMLButtonElement | null;
-
   detenerTimer();
   minutosTranscurridos = 0;
   segundosTimer = 0;
@@ -200,16 +203,10 @@ function limpiarFormularioDespuesDeGuardar() {
   if (minutos) minutos.value = '00';
   if (detalle) detalle.value = '';
   if (segundos) segundos.textContent = '';
-  if (timerBtn) {
-    timerBtn.textContent = '▶ Iniciar';
-    timerBtn.className = 'secondary';
-  }
+  if (timerBtn) { timerBtn.textContent = '▶ Iniciar'; timerBtn.className = 'secondary'; }
   actualizarColorCategoria();
 }
 
-// ------------------------------------------------------------
-// 01. CONSTRUCCIÓN DEL FORMULARIO
-// ------------------------------------------------------------
 export async function renderRegistrar(container: HTMLElement) {
   await cargarDatos();
   await cargarDefaults();
@@ -218,6 +215,26 @@ export async function renderRegistrar(container: HTMLElement) {
   segundosTimer = 0;
 
   container.innerHTML = `
+    <style>
+      /*
+       * 1.8 — Corrección móvil del bloque de tiempo.
+       *
+       * En pantallas angostas, los botones del temporizador no deben
+       * obligar al campo HH:MM a compartir una sola línea. Antes podían
+       * quedar comprimidos o desbordar horizontalmente, dejando el botón
+       * parcialmente fuera de la pantalla. Permitimos que el bloque se
+       * reorganice y hacemos que los controles ocupen el ancho disponible.
+       */
+      .eon-tiempo-controles{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;width:100%;}
+      .eon-tiempo-entrada{display:flex;align-items:center;flex:1 1 12rem;min-width:0;}
+      .eon-tiempo-boton{flex:0 1 auto;min-width:7rem;}
+      .eon-tiempo-reset{flex:0 0 auto;}
+      @media (max-width:480px){
+        .eon-tiempo-entrada{flex:1 1 100%;}
+        .eon-tiempo-boton{flex:1 1 auto;}
+        .eon-tiempo-reset{flex:0 0 3rem;}
+      }
+    </style>
     <article>
       <h2>📋 Registrar tiempo</h2>
       <form id="registroForm">
@@ -225,7 +242,6 @@ export async function renderRegistrar(container: HTMLElement) {
           Fecha *
           <input type="date" id="fecha" value="${fechaLocalISO()}" required>
         </label>
-
         <label>
           Proyecto
           <input type="hidden" id="proyecto" value="">
@@ -235,15 +251,13 @@ export async function renderRegistrar(container: HTMLElement) {
             ${proyectos.map(p => `<option value="${escapeHtml(p.nombre)}"></option>`).join('')}
           </datalist>
         </label>
-
         <label>
           Categoría *
           <div id="categoriaPicker" style="position:relative;">
             <input type="hidden" id="categoria" value="">
             <button type="button" id="categoriaPickerButton" class="secondary" aria-haspopup="listbox" aria-expanded="false" style="width:100%;display:flex;align-items:center;gap:0.5rem;text-align:left;margin:0;">
               <span id="categoriaColor" aria-hidden="true" style="display:inline-block;width:0.9rem;height:0.9rem;border-radius:50%;flex:0 0 0.9rem;border:1px solid var(--pico-muted-border-color);background:transparent;"></span>
-              <span id="categoriaPickerText" style="flex:1;">Seleccionar categoría</span>
-              <span aria-hidden="true">▾</span>
+              <span id="categoriaPickerText" style="flex:1;">Seleccionar categoría</span><span aria-hidden="true">▾</span>
             </button>
             <div id="categoriaPickerOptions" role="listbox" hidden style="position:absolute;z-index:20;left:0;right:0;top:calc(100% + 0.25rem);background:white;color:black;border:1px solid var(--pico-muted-border-color);border-radius:var(--pico-border-radius);padding:0.25rem;box-shadow:var(--pico-box-shadow);max-height:16rem;overflow:auto;">
               ${categorias.map(c => `
@@ -255,7 +269,6 @@ export async function renderRegistrar(container: HTMLElement) {
             </div>
           </div>
         </label>
-
         <label>
           Cliente
           <input type="hidden" id="cliente" value="">
@@ -265,30 +278,28 @@ export async function renderRegistrar(container: HTMLElement) {
             ${clientes.map(c => `<option value="${escapeHtml(c.nombre)}"></option>`).join('')}
           </datalist>
         </label>
-
         <label>
           Tiempo * (HH:MM)
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
+          <div class="eon-tiempo-controles">
+            <div class="eon-tiempo-entrada">
               <div style="display:flex;align-items:center;gap:0;flex:1;min-width:0;border:1px solid var(--pico-form-element-border-color);border-radius:var(--pico-border-radius);background:var(--pico-form-element-background-color);padding:0 .65rem;">
                 <input type="text" id="tiempoHoras" inputmode="numeric" maxlength="2" aria-label="Horas" value="00" required style="border:0;box-shadow:none;padding:.65rem .1rem;width:2.5rem;text-align:center;font-variant-numeric:tabular-nums;margin:0;background:transparent;">
                 <span aria-hidden="true" style="font-weight:600;user-select:none;">:</span>
                 <input type="text" id="tiempoMinutos" inputmode="numeric" maxlength="2" aria-label="Minutos" value="00" required style="border:0;box-shadow:none;padding:.65rem .1rem;width:2.5rem;text-align:center;font-variant-numeric:tabular-nums;margin:0;background:transparent;">
               </div>
-              <span id="timerSegundos" aria-hidden="true" style="margin-left: 0.25rem; color: var(--pico-muted-color); font-variant-numeric: tabular-nums;"></span>
+              <span id="timerSegundos" aria-hidden="true" style="margin-left:.25rem;color:var(--pico-muted-color);font-variant-numeric:tabular-nums;"></span>
             </div>
-            <button type="button" id="timerBtn" class="secondary">▶ Iniciar</button>
-            <button type="button" id="resetBtn" class="contrast">↺</button>
+            <button type="button" id="timerBtn" class="secondary eon-tiempo-boton">▶ Iniciar</button>
+            <button type="button" id="resetBtn" class="contrast eon-tiempo-reset">↺</button>
           </div>
         </label>
-
         <label>
           Detalle
           <textarea id="detalle" rows="3" placeholder="¿Qué hiciste? (opcional)"></textarea>
         </label>
         <button type="submit">💾 Guardar registro</button>
       </form>
-      <div id="mensaje" style="margin-top: 1rem;"></div>
+      <div id="mensaje" style="margin-top:1rem;"></div>
     </article>
   `;
 
@@ -299,9 +310,7 @@ export async function renderRegistrar(container: HTMLElement) {
   configurarCampoTiempo();
   configurarBuscador('clienteBuscar', 'cliente', clientes, defaultClienteId);
   document.getElementById('categoriaPickerButton')?.addEventListener('click', alternarSelectorCategoria);
-  document.querySelectorAll('.categoriaOpcion').forEach(opcion => {
-    opcion.addEventListener('click', () => seleccionarCategoria((opcion as HTMLElement).dataset.categoriaId ?? ''));
-  });
+  document.querySelectorAll('.categoriaOpcion').forEach(opcion => opcion.addEventListener('click', () => seleccionarCategoria((opcion as HTMLElement).dataset.categoriaId ?? '')));
   actualizarColorCategoria();
 }
 
@@ -315,22 +324,51 @@ async function cargarDatos() {
 
   const { data: proyectosData } = await supabase.from('proyectos').select('*').eq('user_id', userId).eq('activo', true).order('nombre');
   proyectos = proyectosData ?? [];
+
   const { data: categoriasData } = await supabase.from('categorias').select('*').eq('user_id', userId).order('nombre');
   categorias = categoriasData ?? [];
+
+  /*
+   * 1.8 — Orden de categorías por frecuencia de uso.
+   *
+   * No modificamos la tabla categorias ni su orden permanente. Solo
+   * calculamos, para esta pantalla, cuántos registros históricos tiene
+   * cada categoría y ordenamos la lista en memoria. Así la configuración
+   * de categorías sigue siendo independiente del orden de Registrar.
+   *
+   * Los empates se resuelven alfabéticamente para que el selector sea
+   * estable. Las categorías sin registros quedan naturalmente al final.
+   */
+  const { data: registrosData } = await supabase
+    .from('registros')
+    .select('categoria_id')
+    .eq('user_id', userId);
+
+  const frecuencia = new Map<number, number>();
+  for (const registro of registrosData ?? []) {
+    if (registro.categoria_id !== null && registro.categoria_id !== undefined) {
+      const id = Number(registro.categoria_id);
+      frecuencia.set(id, (frecuencia.get(id) ?? 0) + 1);
+    }
+  }
+
+  categorias.sort((a, b) => {
+    const usoA = frecuencia.get(Number(a.id)) ?? 0;
+    const usoB = frecuencia.get(Number(b.id)) ?? 0;
+    if (usoA !== usoB) return usoB - usoA;
+    return String(a.nombre).localeCompare(String(b.nombre), 'es', { sensitivity: 'base' });
+  });
+
   const { data: clientesData } = await supabase.from('clientes').select('*').eq('user_id', userId).order('nombre');
   clientes = clientesData ?? [];
 }
 
-// ------------------------------------------------------------
-// 03. VALORES PREDETERMINADOS
-// ------------------------------------------------------------
 async function cargarDefaults() {
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
   defaultProyectoId = null;
   defaultClienteId = null;
   if (!userId) return;
-
   const { data, error } = await supabase.from('configuracion').select('*').eq('user_id', userId).single();
   if (data && !error) {
     if (data.proyecto_id && proyectos.some(p => p.id === data.proyecto_id)) defaultProyectoId = data.proyecto_id;
@@ -343,11 +381,6 @@ async function cargarDefaults() {
   }
 }
 
-// ------------------------------------------------------------
-// 04. GUARDAR REGISTRO
-// ------------------------------------------------------------
-// El valor HH:MM se convierte a minutos antes de insertarlo.
-// ------------------------------------------------------------
 async function handleGuardar(e: Event) {
   e.preventDefault();
   const fecha = (document.getElementById('fecha') as HTMLInputElement).value;
@@ -370,24 +403,15 @@ async function handleGuardar(e: Event) {
   limpiarFormularioDespuesDeGuardar();
 }
 
-// ------------------------------------------------------------
-// 05. TEMPORIZADOR
-// ------------------------------------------------------------
-// El intervalo actualiza la interfaz cada 250 ms, pero el tiempo
-// real se calcula usando Date.now() para evitar depender de ticks
-// perfectos del navegador.
-// ------------------------------------------------------------
 function handleTimer() {
   const btn = document.getElementById('timerBtn') as HTMLButtonElement;
   if (!btn) return;
-  if (timerCorriendo) {
-    detenerTimer(); btn.textContent = '▶ Iniciar'; btn.className = 'secondary'; actualizarVisualTimer(); return;
-  }
+  if (timerCorriendo) { detenerTimer(); btn.textContent = '▶ Iniciar'; btn.className = 'secondary eon-tiempo-boton'; actualizarVisualTimer(); return; }
   const valorActual = leerTiempoDesdeCampos();
   if (valorActual !== null) minutosTranscurridos = valorActual;
   segundosTimer = minutosTranscurridos * 60;
   ultimoTick = Date.now(); timerCorriendo = true;
-  btn.textContent = '⏹ Detener'; btn.className = 'primary'; actualizarVisualTimer();
+  btn.textContent = '⏹ Detener'; btn.className = 'primary eon-tiempo-boton'; actualizarVisualTimer();
   timerInterval = window.setInterval(() => {
     const ahora = Date.now();
     const transcurridos = Math.floor((ahora - ultimoTick) / 1000);
@@ -411,7 +435,7 @@ function handleReset() {
   detenerTimer(); minutosTranscurridos = 0; segundosTimer = 0; escribirTiempoEnCampos(0);
   const segundos = document.getElementById('timerSegundos');
   if (segundos) segundos.textContent = '';
-  btn.textContent = '▶ Iniciar'; btn.className = 'secondary';
+  btn.textContent = '▶ Iniciar'; btn.className = 'secondary eon-tiempo-boton';
 }
 
 function escapeHtml(str: string): string {
