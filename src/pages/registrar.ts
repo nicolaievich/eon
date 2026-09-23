@@ -107,11 +107,52 @@ function configurarBuscador(inputId: string, hiddenId: string, items: any[], val
 }
 
 function actualizarVisualTimer() {
-  const input = document.getElementById('tiempo') as HTMLInputElement | null;
   const segundos = document.getElementById('timerSegundos');
-  if (!input || !segundos) return;
-  input.value = formatearTiempo(minutosTranscurridos);
+  if (!segundos) return;
+  escribirTiempoEnCampos(minutosTranscurridos);
   segundos.textContent = timerCorriendo ? formatearSegundos(segundosTimer) : '';
+}
+
+// El campo visible HH:MM está compuesto por dos inputs reales.
+// El separador ":" es un elemento fijo y, por lo tanto, nunca puede borrarse.
+function leerTiempoDesdeCampos(): number | null {
+  const horas = document.getElementById('tiempoHoras') as HTMLInputElement | null;
+  const minutos = document.getElementById('tiempoMinutos') as HTMLInputElement | null;
+  if (!horas || !minutos) return null;
+  const h = Number(horas.value);
+  const m = Number(minutos.value);
+  if (!Number.isInteger(h) || h < 0 || !Number.isInteger(m) || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+function escribirTiempoEnCampos(totalMinutos: number) {
+  const total = Math.max(0, Math.floor(Number(totalMinutos) || 0));
+  const horas = document.getElementById('tiempoHoras') as HTMLInputElement | null;
+  const minutos = document.getElementById('tiempoMinutos') as HTMLInputElement | null;
+  if (!horas || !minutos) return;
+  horas.value = String(Math.floor(total / 60)).padStart(2, '0');
+  minutos.value = String(total % 60).padStart(2, '0');
+}
+
+function configurarCampoTiempo() {
+  const horas = document.getElementById('tiempoHoras') as HTMLInputElement | null;
+  const minutos = document.getElementById('tiempoMinutos') as HTMLInputElement | null;
+  if (!horas || !minutos) return;
+
+  [horas, minutos].forEach((input) => {
+    input.addEventListener('input', () => {
+      input.value = input.value.replace(/\\D/g, '').slice(0, 2);
+      if (input === minutos && input.value !== '') {
+        input.value = String(Math.min(Number(input.value), 59));
+      }
+    });
+    input.addEventListener('dblclick', () => input.select());
+    input.addEventListener('blur', () => {
+      if (input.value === '') input.value = '00';
+      const max = input === minutos ? 59 : 99;
+      input.value = String(Math.min(Number(input.value) || 0, max)).padStart(2, '0');
+    });
+  });
 }
 
 function actualizarColorCategoria() {
@@ -152,7 +193,8 @@ function limpiarFormularioDespuesDeGuardar() {
   const proyecto = document.getElementById('proyecto') as HTMLInputElement | null;
   const categoria = document.getElementById('categoria') as HTMLInputElement | null;
   const cliente = document.getElementById('cliente') as HTMLInputElement | null;
-  const tiempo = document.getElementById('tiempo') as HTMLInputElement | null;
+  const horas = document.getElementById('tiempoHoras') as HTMLInputElement | null;
+  const minutos = document.getElementById('tiempoMinutos') as HTMLInputElement | null;
   const detalle = document.getElementById('detalle') as HTMLTextAreaElement | null;
   const segundos = document.getElementById('timerSegundos');
   const timerBtn = document.getElementById('timerBtn') as HTMLButtonElement | null;
@@ -168,7 +210,8 @@ function limpiarFormularioDespuesDeGuardar() {
   if (cliente) cliente.value = defaultClienteId !== null ? String(defaultClienteId) : '';
   const clienteBuscar = document.getElementById('clienteBuscar') as HTMLInputElement | null;
   if (clienteBuscar) clienteBuscar.value = clientes.find(c => c.id === defaultClienteId)?.nombre ?? '';
-  if (tiempo) tiempo.value = '00:00';
+  if (horas) horas.value = '00';
+  if (minutos) minutos.value = '00';
   if (detalle) detalle.value = '';
   if (segundos) segundos.textContent = '';
   if (timerBtn) {
@@ -241,7 +284,11 @@ export async function renderRegistrar(container: HTMLElement) {
           Tiempo * (HH:MM)
           <div style="display: flex; gap: 0.5rem; align-items: center;">
             <div style="display: flex; align-items: center; flex: 1; min-width: 0;">
-              <input type="text" id="tiempo" placeholder="01:30" value="00:00" required style="flex: 1; min-width: 0;">
+              <div style="display:flex;align-items:center;gap:0;flex:1;min-width:0;border:1px solid var(--pico-form-element-border-color);border-radius:var(--pico-border-radius);background:var(--pico-form-element-background-color);padding:0 .65rem;">
+                <input type="text" id="tiempoHoras" inputmode="numeric" maxlength="2" aria-label="Horas" value="00" required style="border:0;box-shadow:none;padding:.65rem .1rem;width:2.5rem;text-align:center;font-variant-numeric:tabular-nums;margin:0;background:transparent;">
+                <span aria-hidden="true" style="font-weight:600;user-select:none;">:</span>
+                <input type="text" id="tiempoMinutos" inputmode="numeric" maxlength="2" aria-label="Minutos" value="00" required style="border:0;box-shadow:none;padding:.65rem .1rem;width:2.5rem;text-align:center;font-variant-numeric:tabular-nums;margin:0;background:transparent;">
+              </div>
               <span id="timerSegundos" aria-hidden="true" style="margin-left: 0.25rem; color: var(--pico-muted-color); font-variant-numeric: tabular-nums;"></span>
             </div>
             <button type="button" id="timerBtn" class="secondary">▶ Iniciar</button>
@@ -263,6 +310,7 @@ export async function renderRegistrar(container: HTMLElement) {
   document.getElementById('timerBtn')?.addEventListener('click', handleTimer);
   document.getElementById('resetBtn')?.addEventListener('click', handleReset);
   configurarBuscador('proyectoBuscar', 'proyecto', proyectos, defaultProyectoId);
+  configurarCampoTiempo();
   configurarBuscador('clienteBuscar', 'cliente', clientes, defaultClienteId);
   document.getElementById('categoriaPickerButton')?.addEventListener('click', alternarSelectorCategoria);
   document.querySelectorAll('.categoriaOpcion').forEach(opcion => {
@@ -320,14 +368,13 @@ async function handleGuardar(e: Event) {
   const proyectoId = (document.getElementById('proyecto') as HTMLInputElement).value;
   const categoriaId = (document.getElementById('categoria') as HTMLInputElement).value;
   const clienteId = (document.getElementById('cliente') as HTMLInputElement).value;
-  const tiempoStr = (document.getElementById('tiempo') as HTMLInputElement).value;
+  const tiempoMinutos = leerTiempoDesdeCampos();
   const detalle = (document.getElementById('detalle') as HTMLTextAreaElement).value;
   const mensaje = document.getElementById('mensaje');
   if (!mensaje) return;
   if (!fecha) { mensaje.innerHTML = '<p style="color: red;">❌ La fecha es obligatoria</p>'; return; }
   if (!categoriaId) { mensaje.innerHTML = '<p style="color: red;">❌ La categoría es obligatoria</p>'; return; }
-  const tiempoMinutos = convertirAMinutos(tiempoStr);
-  if (tiempoMinutos === null) { mensaje.innerHTML = '<p style="color: red;">❌ Formato de tiempo inválido. Usá HH:MM (por ejemplo, 01:30)</p>'; return; }
+  if (tiempoMinutos === null) { mensaje.innerHTML = '<p style="color: red;">❌ Tiempo inválido. Los minutos deben estar entre 00 y 59.</p>'; return; }
   const user = await supabase.auth.getUser();
   const userId = user.data.user?.id;
   if (!userId) { mensaje.innerHTML = '<p style="color: red;">❌ No estás autenticado</p>'; return; }
@@ -346,12 +393,11 @@ async function handleGuardar(e: Event) {
 // ------------------------------------------------------------
 function handleTimer() {
   const btn = document.getElementById('timerBtn') as HTMLButtonElement;
-  const input = document.getElementById('tiempo') as HTMLInputElement;
-  if (!btn || !input) return;
+  if (!btn) return;
   if (timerCorriendo) {
     detenerTimer(); btn.textContent = '▶ Iniciar'; btn.className = 'secondary'; actualizarVisualTimer(); return;
   }
-  const valorActual = convertirAMinutos(input.value);
+  const valorActual = leerTiempoDesdeCampos();
   if (valorActual !== null) minutosTranscurridos = valorActual;
   segundosTimer = minutosTranscurridos * 60;
   ultimoTick = Date.now(); timerCorriendo = true;
@@ -374,10 +420,9 @@ function detenerTimer() {
 }
 
 function handleReset() {
-  const input = document.getElementById('tiempo') as HTMLInputElement;
   const btn = document.getElementById('timerBtn') as HTMLButtonElement;
-  if (!input || !btn) return;
-  detenerTimer(); minutosTranscurridos = 0; segundosTimer = 0; input.value = '00:00';
+  if (!btn) return;
+  detenerTimer(); minutosTranscurridos = 0; segundosTimer = 0; escribirTiempoEnCampos(0);
   const segundos = document.getElementById('timerSegundos');
   if (segundos) segundos.textContent = '';
   btn.textContent = '▶ Iniciar'; btn.className = 'secondary';
