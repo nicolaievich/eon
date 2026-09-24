@@ -29,8 +29,12 @@ export async function registrarUsuario(email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    // El enlace vuelve al mismo dominio desde el que se registró el usuario.
-    emailRedirectTo: window.location.origin,
+    // Supabase JS 2.117.x recibe emailRedirectTo dentro de options.
+    // Mantenerlo aquí evita el error de TypeScript del build de producción.
+    options: {
+      // El enlace vuelve al mismo dominio desde el que se registró el usuario.
+      emailRedirectTo: window.location.origin,
+    },
   });
   if (error) throw error;
   return data;
