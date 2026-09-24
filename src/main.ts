@@ -31,7 +31,7 @@ import { renderConfig } from './pages/config';
 import { renderRegistros } from './pages/registros';
 import { renderExportar } from './pages/exportar';
 import { renderGrafico } from './pages/grafico';
-import { iniciarSesion, registrarUsuario, cerrarSesion, obtenerSesion, enviarResetPassword, actualizarPassword } from './auth';
+import { iniciarSesion, registrarUsuario, cerrarSesion, obtenerSesion, enviarResetPassword, reenviarConfirmacion, actualizarPassword } from './auth';
 import { supabase } from './lib/supabase';
 
 const app = document.getElementById('app');
@@ -45,46 +45,82 @@ function renderLogin() {
   if (!app) return;
   app.innerHTML = `
     <main class="container" style="max-width: 400px; margin-top: 3rem;">
-      <h1 style="text-align: center;"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.1</small></h1><p style="text-align: center; color: var(--pico-muted-color);">Registro de tiempos</p>
-      <article><h2>Iniciar sesión</h2>
-        <form id="loginForm"><label>Email<input type="email" id="loginEmail" placeholder="tu@email.com" required></label>
-        <label>Contraseña<input type="password" id="loginPassword" placeholder="••••••••" required></label>
-        <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" id="mostrarLoginPassword" style="margin:0;">Ver contraseña</label>
-        <button type="submit" style="width:100%;">Iniciar sesión</button></form>
-        <p style="text-align:center;margin-top:.5rem;"><a href="#" id="olvideClave">¿Olvidaste tu contraseña?</a></p><hr>
-        <details><summary>¿No tenés cuenta? Registrate</summary>
-          <form id="registerForm"><label>Email<input type="email" id="registerEmail" placeholder="tu@email.com" required></label>
-          <label>Contraseña<input type="password" id="registerPassword" minlength="6" required></label>
-          <label>Repetir contraseña<input type="password" id="registerPasswordConfirm" minlength="6" required></label>
-          <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" id="mostrarRegisterPassword" style="margin:0;">Ver contraseña</label>
-          <button type="submit" style="width:100%;" class="secondary">Registrarme</button></form>
-        </details><div id="authMessage" style="margin-top:1rem;"></div>
+      <h1 style="text-align: center;"><img src="/favicon.svg?v=1.8.2" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.2</small></h1>
+      <p style="text-align: center; color: var(--pico-muted-color);">Registro de tiempos</p>
+      <article>
+        <h2>Iniciar sesión</h2>
+        <form id="loginForm">
+          <label>Email<input type="email" id="loginEmail" placeholder="tu@email.com" required></label>
+          <label>Contraseña<input type="password" id="loginPassword" placeholder="••••••••" required></label>
+          <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" id="mostrarLoginPassword" style="margin:0;">Ver contraseña</label>
+          <button type="submit" style="width:100%;">Iniciar sesión</button>
+        </form>
+        <p style="text-align:center;margin-top:.5rem;"><a href="#" id="olvideClave">¿Olvidaste tu contraseña?</a></p>
+        <p style="text-align:center;margin-top:.5rem;"><a href="#" id="noConfirme">¿No confirmaste tu correo?</a></p>
+        <hr>
+        <details>
+          <summary>¿No tenés cuenta? Registrate</summary>
+          <form id="registerForm">
+            <label>Email<input type="email" id="registerEmail" placeholder="tu@email.com" required></label>
+            <label>Contraseña<input type="password" id="registerPassword" minlength="6" required></label>
+            <label>Repetir contraseña<input type="password" id="registerPasswordConfirm" minlength="6" required></label>
+            <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" id="mostrarRegisterPassword" style="margin:0;">Ver contraseña</label>
+            <button type="submit" style="width:100%;" class="secondary">Registrarme</button>
+          </form>
+        </details>
+        <div id="authMessage" style="margin-top:1rem;"></div>
       </article>
     </main>`;
   document.getElementById('loginForm')?.addEventListener('submit', handleLogin);
   document.getElementById('registerForm')?.addEventListener('submit', handleRegister);
+
   document.getElementById('mostrarLoginPassword')?.addEventListener('change', e => {
-    const p = document.getElementById('loginPassword') as HTMLInputElement; p.type = (e.target as HTMLInputElement).checked ? 'text' : 'password';
+    const p = document.getElementById('loginPassword') as HTMLInputElement;
+    p.type = (e.target as HTMLInputElement).checked ? 'text' : 'password';
   });
   document.getElementById('mostrarRegisterPassword')?.addEventListener('change', e => {
     const mostrar = (e.target as HTMLInputElement).checked;
     (document.getElementById('registerPassword') as HTMLInputElement).type = mostrar ? 'text' : 'password';
     (document.getElementById('registerPasswordConfirm') as HTMLInputElement).type = mostrar ? 'text' : 'password';
   });
+
   document.getElementById('olvideClave')?.addEventListener('click', async e => {
-    e.preventDefault(); const email = (document.getElementById('loginEmail') as HTMLInputElement).value; const message = document.getElementById('authMessage'); if (!message) return;
-    if (!email) { message.innerHTML = '<p style="color:red;">❌ Escribí tu email arriba primero</p>'; return; }
-    try { await enviarResetPassword(email); message.innerHTML = '<p style="color:green;">✅ Te enviamos un mail con el link para cambiar la contraseña</p>'; }
-    catch (error: any) { message.innerHTML = `<p style="color:red;">❌ ${error.message}</p>`; }
+    e.preventDefault();
+    const email = (document.getElementById('loginEmail') as HTMLInputElement).value.trim();
+    const message = document.getElementById('authMessage');
+    if (!message) return;
+    if (!email) { message.innerHTML = '<p style="color:var(--pico-del-color);">Escribí tu email arriba primero.</p>'; return; }
+    try {
+      await enviarResetPassword(email);
+      message.innerHTML = '<article><strong>📩 Revisá tu correo.</strong><br>Te enviamos un enlace para cambiar tu contraseña. Si no aparece, revisá Spam o Correo no deseado.</article>';
+    } catch (error: any) {
+      message.innerHTML = '<p style="color:var(--pico-del-color);">No pudimos enviar el correo. Revisá el email e intentá nuevamente.</p>';
+    }
+  });
+
+  document.getElementById('noConfirme')?.addEventListener('click', async e => {
+    e.preventDefault();
+    const email = (document.getElementById('loginEmail') as HTMLInputElement).value.trim();
+    const message = document.getElementById('authMessage');
+    if (!message) return;
+    if (!email) {
+      message.innerHTML = '<article><strong>📩 Confirmá tu correo</strong><br>Escribí arriba el email con el que te registraste y después volvé a tocar este enlace.</article>';
+      return;
+    }
+    try {
+      await reenviarConfirmacion(email);
+      message.innerHTML = '<article><strong>📩 Correo de confirmación reenviado</strong><br>Revisá tu bandeja de entrada y también <strong>Spam / Correo no deseado / Promociones</strong>.<br><small>Buscá un mensaje de EÓN y tocá el botón para confirmar tu cuenta.</small></article>';
+    } catch (error: any) {
+      message.innerHTML = '<article><strong>No pudimos reenviar el correo.</strong><br>Comprobá que el email sea el mismo con el que te registraste e intentá nuevamente.</article>';
+    }
   });
 }
-
 // ------------------------------------------------------------
 // 02. RECUPERACIÓN DE CONTRASEÑA
 // ------------------------------------------------------------
 function renderNuevaPassword() {
   if (!app) return;
-  app.innerHTML = `<main class="container" style="max-width:400px;margin-top:3rem;"><h1 style="text-align:center;"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.1</small></h1><article><h2>Elegí tu nueva contraseña</h2>
+  app.innerHTML = `<main class="container" style="max-width:400px;margin-top:3rem;"><h1 style="text-align:center;"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.2em;height:1.2em;vertical-align:-0.18em;"> EÓN <small style="font-size:.45em;color:var(--pico-muted-color);font-weight:normal;">v1.8.2</small></h1><article><h2>Elegí tu nueva contraseña</h2>
     <form id="nuevaPasswordForm"><label>Nueva contraseña<input type="password" id="nuevaPassword" minlength="6" required></label><label>Repetir contraseña<input type="password" id="nuevaPasswordConfirm" minlength="6" required></label>
     <label style="display:flex;align-items:center;gap:.5rem;"><input type="checkbox" id="mostrarNuevaPassword" style="margin:0;">Ver contraseña</label><button type="submit" style="width:100%;">Guardar nueva contraseña</button></form><div id="nuevaPasswordMensaje" style="margin-top:1rem;"></div></article></main>`;
   document.getElementById('mostrarNuevaPassword')?.addEventListener('change', e => { const m=(e.target as HTMLInputElement).checked; (document.getElementById('nuevaPassword') as HTMLInputElement).type=m?'text':'password'; (document.getElementById('nuevaPasswordConfirm') as HTMLInputElement).type=m?'text':'password'; });
@@ -140,7 +176,7 @@ function renderApp() {
     </style>
     <main class="container">
       <header class="eon-header">
-        <h1 class="eon-logo"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.8.1</small></h1>
+        <h1 class="eon-logo"><img src="/favicon.svg?v=1.8.1" alt="" style="width:1.15em;height:1.15em;"> EÓN <small style="font-size:.42em;color:var(--pico-muted-color);font-weight:normal;">v1.8.2</small></h1>
         <details class="eon-account">
           <summary aria-label="Abrir cuenta" title="Cuenta">👤</summary>
           <div class="eon-account-menu">
@@ -177,8 +213,55 @@ function renderApp() {
 // ------------------------------------------------------------
 // 04. ACCESO
 // ------------------------------------------------------------
-async function handleLogin(e:Event){e.preventDefault();const email=(document.getElementById('loginEmail') as HTMLInputElement).value;const password=(document.getElementById('loginPassword') as HTMLInputElement).value;const message=document.getElementById('authMessage');if(!message)return;try{await iniciarSesion(email,password);message.innerHTML='<p style="color:green;">✅ Sesión iniciada</p>';verificarSesion();}catch(error:any){message.innerHTML=`<p style="color:red;">❌ ${error.message}</p>`;}}
-async function handleRegister(e:Event){e.preventDefault();const email=(document.getElementById('registerEmail') as HTMLInputElement).value;const password=(document.getElementById('registerPassword') as HTMLInputElement).value;const confirm=(document.getElementById('registerPasswordConfirm') as HTMLInputElement).value;const message=document.getElementById('authMessage');if(!message)return;if(password!==confirm){message.innerHTML='<p style="color:red;">❌ Las contraseñas no coinciden</p>';return;}try{await registrarUsuario(email,password);message.innerHTML='<p style="color:green;">✅ Registro exitoso. Ahora iniciá sesión.</p>';(document.getElementById('registerEmail') as HTMLInputElement).value='';(document.getElementById('registerPassword') as HTMLInputElement).value='';(document.getElementById('registerPasswordConfirm') as HTMLInputElement).value='';}catch(error:any){message.innerHTML=`<p style="color:red;">❌ ${error.message}</p>`;}}
+async function handleLogin(e:Event){
+  e.preventDefault();
+  const email=(document.getElementById('loginEmail') as HTMLInputElement).value.trim();
+  const password=(document.getElementById('loginPassword') as HTMLInputElement).value;
+  const message=document.getElementById('authMessage');
+  if(!message)return;
+  try{
+    await iniciarSesion(email,password);
+    message.innerHTML='<p style="color:green;">✅ Sesión iniciada</p>';
+    verificarSesion();
+  }catch(error:any){
+    const texto=String(error?.message || '').toLowerCase();
+    if(texto.includes('email not confirmed') || texto.includes('email_not_confirmed')){
+      message.innerHTML='<article><strong>📩 Tu correo todavía no está confirmado.</strong><br>Revisá tu bandeja de entrada y también <strong>Spam / Correo no deseado / Promociones</strong>.<br><br><button type="button" id="reenviarDesdeError" class="secondary">Reenviar correo de confirmación</button></article>';
+      document.getElementById('reenviarDesdeError')?.addEventListener('click', async()=>{
+        try{await reenviarConfirmacion(email);message.innerHTML='<article><strong>📩 Correo reenviado.</strong><br>Revisá también Spam / Correo no deseado / Promociones.</article>';}
+        catch{message.innerHTML='<article>No pudimos reenviar el correo. Verificá el email e intentá nuevamente.</article>';}
+      });
+    }else{
+      message.innerHTML='<p style="color:var(--pico-del-color);">No pudimos iniciar sesión. Revisá tu email y contraseña.</p>';
+    }
+  }
+}
+async function handleRegister(e:Event){
+  e.preventDefault();
+  const email=(document.getElementById('registerEmail') as HTMLInputElement).value.trim();
+  const password=(document.getElementById('registerPassword') as HTMLInputElement).value;
+  const confirm=(document.getElementById('registerPasswordConfirm') as HTMLInputElement).value;
+  const message=document.getElementById('authMessage');
+  if(!message)return;
+  if(password!==confirm){message.innerHTML='<p style="color:var(--pico-del-color);">Las contraseñas no coinciden.</p>';return;}
+  try{
+    const data=await registrarUsuario(email,password);
+    if(data.session){
+      message.innerHTML='<p style="color:green;">✅ Cuenta creada. Sesión iniciada.</p>';
+      verificarSesion();
+    }else{
+      message.innerHTML='<article><strong>✅ Cuenta creada.</strong><br>Te enviamos un correo a <strong>'+email+'</strong> para confirmar tu cuenta.<br><br>📩 <strong>Revisá también Spam / Correo no deseado / Promociones.</strong><br><br><button type="button" id="reenviarRegistro" class="secondary">Reenviar correo de confirmación</button></article>';
+      document.getElementById('reenviarRegistro')?.addEventListener('click',async()=>{
+        try{await reenviarConfirmacion(email);message.innerHTML='<article><strong>📩 Correo reenviado.</strong><br>Revisá tu bandeja de entrada y también Spam / Correo no deseado / Promociones.</article>';}
+        catch{message.innerHTML='<article>No pudimos reenviar el correo. Esperá unos segundos e intentá nuevamente.</article>';}
+      });
+    }
+    (document.getElementById('registerPassword') as HTMLInputElement).value='';
+    (document.getElementById('registerPasswordConfirm') as HTMLInputElement).value='';
+  }catch(error:any){
+    message.innerHTML='<p style="color:var(--pico-del-color);">No pudimos crear la cuenta. Si ya te registraste, probá iniciar sesión o reenviar la confirmación.</p>';
+  }
+}
 async function handleLogout(){try{await cerrarSesion();usuarioActual=null;renderLogin();}catch(error:any){alert('Error al cerrar sesión: '+error.message);}}
 async function verificarSesion(){if(modoRecuperacion)return;try{const session=await obtenerSesion();if(session?.session?.user){usuarioActual=session.session.user;renderApp();}else{usuarioActual=null;renderLogin();}}catch(error){console.error('Error al verificar sesión:',error);renderLogin();}}
 let periodoGrafico: 'hoy' | 'semana' | 'mes' = 'hoy';
