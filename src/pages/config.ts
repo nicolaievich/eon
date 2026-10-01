@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * EÓN — CONFIGURACIÓN (config.ts) — v1.7.1
+ * EÓN — CONFIGURACIÓN (config.ts) — v1.8.4
  * ============================================================
  *
  * Administra proyectos, categorías, clientes y los valores
@@ -291,14 +291,14 @@ function pintar(container: HTMLElement) {
 
         <div style="overflow-x:auto;margin-top:1rem;">
           <table>
-            <thead><tr><th>Nombre</th><th>Contacto</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Contacto</th><th>Acciones</th></tr></thead>
             <tbody>
               ${clientes.map(c => `
                 <tr>
                   <td>${escapeHtml(c.nombre)}</td>
-                  <td>${escapeHtml(c.contacto ?? '')}</td>
+                  <td>${escapeHtml(c.contacto ?? '')}</td><td><button type="button" class="secondary editarCliente" data-id="${c.id}">✏️ Editar</button></td>
                 </tr>
-              `).join('') || '<tr><td colspan="2"><em>Sin clientes todavía</em></td></tr>'}
+              `).join('') || '<tr><td colspan="3"><em>Sin clientes todavía</em></td></tr>'}
             </tbody>
           </table>
         </div>
@@ -340,7 +340,7 @@ function pintar(container: HTMLElement) {
                 <td>${escapeHtml(p.descripcion ?? '')}</td>
                 <td>${p.activo ? '✅' : '❌'}</td>
                 <td>
-                  <button type="button" class="secondary toggleProyecto" data-id="${p.id}" data-activo="${p.activo}">
+                  <button type="button" class="secondary editarProyecto" data-id="${p.id}">✏️ Editar</button> <button type="button" class="secondary toggleProyecto" data-id="${p.id}" data-activo="${p.activo}">
                     ${p.activo ? 'Desactivar' : 'Activar'}
                   </button>
                 </td>
@@ -416,7 +416,52 @@ function conectarEventosCatalogo(container: HTMLElement, tabla: 'proyectos' | 'c
   document.getElementById(tabla === 'proyectos' ? 'formProyecto' : 'formCliente')
     ?.addEventListener('submit', (e) => handleAlta(e, container, tabla));
 
+
+  if (tabla === 'clientes') {
+    container.querySelectorAll('.editarCliente').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = Number((e.currentTarget as HTMLElement).dataset.id);
+        const cliente = clientes.find(c => c.id === id);
+        if (!cliente) return;
+        const nombre = prompt('Nuevo nombre del cliente:', cliente.nombre);
+        if (nombre === null) return;
+        const nombreLimpio = nombre.trim();
+        if (!nombreLimpio) { alert('El nombre no puede quedar vacío.'); return; }
+        const contacto = prompt('Nuevo contacto del cliente:', cliente.contacto ?? '');
+        if (contacto === null) return;
+        const user = await supabase.auth.getUser();
+        const userId = user.data.user?.id;
+        if (!userId) return;
+        const { error } = await supabase.from('clientes').update({ nombre: nombreLimpio, contacto: contacto.trim() || null }).eq('id', id).eq('user_id', userId);
+        if (error) { alert('Error: ' + error.message); return; }
+        await cargarTodo(); await cargarDefaults(); pintar(container);
+      });
+    });
+  }
+
   if (tabla === 'proyectos') {
+
+  if (tabla === 'proyectos') {
+    container.querySelectorAll('.editarProyecto').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = Number((e.currentTarget as HTMLElement).dataset.id);
+        const proyecto = proyectos.find(p => p.id === id);
+        if (!proyecto) return;
+        const nombre = prompt('Nuevo nombre del proyecto:', proyecto.nombre);
+        if (nombre === null) return;
+        const nombreLimpio = nombre.trim();
+        if (!nombreLimpio) { alert('El nombre no puede quedar vacío.'); return; }
+        const descripcion = prompt('Nueva descripción del proyecto:', proyecto.descripcion ?? '');
+        if (descripcion === null) return;
+        const user = await supabase.auth.getUser();
+        const userId = user.data.user?.id;
+        if (!userId) return;
+        const { error } = await supabase.from('proyectos').update({ nombre: nombreLimpio, descripcion: descripcion.trim() || null }).eq('id', id).eq('user_id', userId);
+        if (error) { alert('Error: ' + error.message); return; }
+        await cargarTodo(); await cargarDefaults(); pintar(container);
+      });
+    });
+
     container.querySelectorAll('.toggleProyecto').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const target = e.currentTarget as HTMLButtonElement;
