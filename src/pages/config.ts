@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * EÓN — CONFIGURACIÓN (config.ts) — v1.8.4
+ * EÓN — CONFIGURACIÓN (config.ts) — v1.9.0
  * ============================================================
  *
  * Administra proyectos, categorías, clientes y los valores
@@ -438,8 +438,6 @@ function conectarEventosCatalogo(container: HTMLElement, tabla: 'proyectos' | 'c
       });
     });
   }
-
-  if (tabla === 'proyectos') {
 
   if (tabla === 'proyectos') {
     container.querySelectorAll('.editarProyecto').forEach(btn => {
