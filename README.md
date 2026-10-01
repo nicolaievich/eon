@@ -12,7 +12,7 @@ La idea central es que registrar un trabajo lleve muy pocos segundos y que esos 
 
 ## Estado actual
 
-**Versión funcional: 1.8.0 (rama main)**
+**Versión funcional: 1.9.0 (rama main)**
 
 EÓN utiliza una numeración funcional simple:
 
@@ -35,6 +35,7 @@ EÓN utiliza una numeración funcional simple:
 - `1.7.1` → reorganización de Configuración como menú de administración: Categorías, Clientes y Proyectos pasan a pantallas independientes con explicación de uso y botón visible «← Volver a Configuración». Se conserva la lógica existente de búsqueda, presentación, alta, edición y activación/desactivación; las categorías por defecto se administran desde Categorías.
 - `1.7.2` → mejora del ingreso de tiempo: HH:MM se presenta como dos campos independientes con `:` fijo, validación de minutos 00–59 y selección independiente de horas/minutos; el temporizador utiliza la misma estructura. Los gráficos de categorías utilizan el color guardado en la configuración de cada categoría, sin paleta automática.
 - `1.8.0` → mejora integral del formulario de Registrar: en pantallas móviles el bloque del temporizador se reorganiza para evitar desbordes y botones cortados; las categorías se ordenan por frecuencia de uso histórica, con empates alfabéticos; Proyecto y Cliente seleccionan automáticamente su texto al recibir el foco para facilitar el reemplazo inmediato.
+- `1.9.0` → administración completa de proyectos y clientes: permite editar nombre, descripción/contacto y conserva el vínculo por ID con los registros históricos, por lo que los cambios se reflejan retroactivamente.
 
 **El segundo número identifica nuevas funciones; el tercer número identifica correcciones y mejoras menores de la versión funcional.**
 
